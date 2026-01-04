@@ -3,36 +3,25 @@
 const nodeMailer = require('nodemailer')
 require('dotenv').config()
 const createTransporter = () => {
-    console.log(process.env.SMTP_HOST, ' ',  process.env.SMTP_USER, ' ', process.env.SMTP_PASS);
+    console.log('SMTP Config:', process.env.SMTP_HOST, process.env.SMTP_USER, process.env.SMTP_PASS ? '***' : 'missing');
   if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-    console.log('lnn');
+    console.log('Creating SMTP transporter...');
     
     return nodeMailer.createTransport({
-
       host: process.env.SMTP_HOST,
-
-      port: process.env.SMTP_PORT || 587,
-
+      port: parseInt(process.env.SMTP_PORT) || 587,
       secure: false,
-
       auth: {
-
         user: process.env.SMTP_USER,
-
         pass: process.env.SMTP_PASS
-
-      }
-
+      },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000
     });
-
   }
-
-//   return nodeMailer.createTransport({
-
-//     jsonTransport: true
-
-//   });
-
+  console.log('SMTP config missing, using fallback');
+  return null;
 };
 
 
@@ -450,9 +439,16 @@ const sendOtpEmail = async (recipientEmail, otp, userName) => {
 
         const transporter = createTransporter()
         if (transporter) {
-            const info = await transporter.sendMail(mailOptions)
-            console.log('OTP Email sent:', info.messageId)
-            return { success: true, message: 'OTP sent successfully' }
+            console.log('Attempting to send OTP email...');
+            try {
+                const info = await transporter.sendMail(mailOptions)
+                console.log('OTP Email sent successfully:', info.messageId)
+                return { success: true, message: 'OTP sent successfully' }
+            } catch (sendError) {
+                console.error('SMTP send error:', sendError.message);
+                console.error('Full error:', JSON.stringify(sendError, null, 2));
+                throw sendError;
+            }
         } else {
             // Fallback: log to console in development
             console.log(`
