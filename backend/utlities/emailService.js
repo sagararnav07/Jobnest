@@ -1,14 +1,21 @@
 // Email service for sending notifications
-// Supports Brevo (Sendinblue), Resend API, and SMTP
+// Supports Mailjet, Brevo (Sendinblue), Resend API, and SMTP
 const nodeMailer = require('nodemailer')
 const { Resend } = require('resend')
+const Mailjet = require('node-mailjet')
 require('dotenv').config()
 
 // Initialize Resend if API key is available
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
-// Check which email method to use (priority: Brevo > Resend > SMTP)
+// Initialize Mailjet if keys are available
+const mailjet = (process.env.MAILJET_API_KEY && process.env.MAILJET_SECRET_KEY) 
+    ? Mailjet.apiConnect(process.env.MAILJET_API_KEY, process.env.MAILJET_SECRET_KEY)
+    : null;
+
+// Check which email method to use (priority: Mailjet > Brevo > Resend > SMTP)
 const getEmailMethod = () => {
+    if (process.env.MAILJET_API_KEY && process.env.MAILJET_SECRET_KEY) return 'mailjet';
     if (process.env.BREVO_API_KEY) return 'brevo';
     if (process.env.RESEND_API_KEY) return 'resend';
     if (process.env.SMTP_HOST) return 'smtp';
@@ -50,10 +57,36 @@ const createBrevoTransporter = () => {
     });
 };
 
-// Generic email sending function that uses Brevo, Resend, or SMTP
+// Generic email sending function that uses Mailjet, Brevo, Resend, or SMTP
 const sendEmail = async (mailOptions) => {
     const method = getEmailMethod();
     console.log('Using email method:', method);
+    
+    if (method === 'mailjet') {
+        console.log('Using Mailjet API to send email...');
+        try {
+            const fromEmail = process.env.EMAIL_FROM || process.env.MAILJET_SENDER || 'noreply@jobnest.com';
+            const result = await mailjet.post('send', { version: 'v3.1' }).request({
+                Messages: [{
+                    From: {
+                        Email: fromEmail,
+                        Name: 'JobNest'
+                    },
+                    To: [{
+                        Email: mailOptions.to
+                    }],
+                    Subject: mailOptions.subject,
+                    HTMLPart: mailOptions.html,
+                    TextPart: mailOptions.text
+                }]
+            });
+            console.log('Email sent via Mailjet:', result.body?.Messages?.[0]?.Status);
+            return { success: true, messageId: result.body?.Messages?.[0]?.MessageID };
+        } catch (err) {
+            console.error('Mailjet send error:', err.message);
+            throw err;
+        }
+    }
     
     if (method === 'brevo') {
         console.log('Using Brevo to send email...');
