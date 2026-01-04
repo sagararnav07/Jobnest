@@ -1,0 +1,14 @@
+{
+  "name": "jobnest",
+  "version": "1.0.0",
+  "description": "JobNest - Job Portal Application",
+  "scripts": {
+    "start": "cd backend && npm start",
+    "build": "cd backend && npm install",
+    "install-backend": "cd backend && npm install",
+    "install-frontend": "cd frontend && npm install",
+    "dev": "cd backend && npm run dev"
+  },
+  "keywords": ["job", "portal", "mern"],
+  "license": "ISC"
+}
