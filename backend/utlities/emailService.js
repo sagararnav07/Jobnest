@@ -1,5 +1,5 @@
 // Email service for sending notifications
-// Supports both Resend API (recommended for cloud deployment) and SMTP
+// Supports Brevo (Sendinblue), Resend API, and SMTP
 const nodeMailer = require('nodemailer')
 const { Resend } = require('resend')
 require('dotenv').config()
@@ -7,9 +7,12 @@ require('dotenv').config()
 // Initialize Resend if API key is available
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
-// Check which email method to use
-const useResend = () => {
-    return !!process.env.RESEND_API_KEY;
+// Check which email method to use (priority: Brevo > Resend > SMTP)
+const getEmailMethod = () => {
+    if (process.env.BREVO_API_KEY) return 'brevo';
+    if (process.env.RESEND_API_KEY) return 'resend';
+    if (process.env.SMTP_HOST) return 'smtp';
+    return 'none';
 }
 
 const createTransporter = () => {
@@ -34,9 +37,44 @@ const createTransporter = () => {
   return null;
 };
 
-// Generic email sending function that uses Resend or SMTP
+// Create Brevo transporter
+const createBrevoTransporter = () => {
+    return nodeMailer.createTransport({
+        host: 'smtp-relay.brevo.com',
+        port: 587,
+        secure: false,
+        auth: {
+            user: process.env.BREVO_USER || process.env.SMTP_USER,
+            pass: process.env.BREVO_API_KEY
+        }
+    });
+};
+
+// Generic email sending function that uses Brevo, Resend, or SMTP
 const sendEmail = async (mailOptions) => {
-    if (useResend()) {
+    const method = getEmailMethod();
+    console.log('Using email method:', method);
+    
+    if (method === 'brevo') {
+        console.log('Using Brevo to send email...');
+        try {
+            const transporter = createBrevoTransporter();
+            const info = await transporter.sendMail({
+                from: process.env.EMAIL_FROM || process.env.BREVO_USER || process.env.SMTP_USER,
+                to: mailOptions.to,
+                subject: mailOptions.subject,
+                html: mailOptions.html,
+                text: mailOptions.text
+            });
+            console.log('Email sent via Brevo:', info.messageId);
+            return { success: true, messageId: info.messageId };
+        } catch (err) {
+            console.error('Brevo send error:', err.message);
+            throw err;
+        }
+    }
+    
+    if (method === 'resend') {
         console.log('Using Resend API to send email...');
         try {
             const { data, error } = await resend.emails.send({
@@ -56,18 +94,21 @@ const sendEmail = async (mailOptions) => {
             console.error('Resend send error:', err);
             throw err;
         }
-    } else {
+    }
+    
+    if (method === 'smtp') {
         const transporter = createTransporter();
         if (transporter) {
             console.log('Using SMTP to send email...');
             const info = await transporter.sendMail(mailOptions);
             console.log('Email sent via SMTP:', info.messageId);
             return { success: true, messageId: info.messageId };
-        } else {
-            console.log('No email service configured, logging email:');
-            console.log('To:', mailOptions.to, 'Subject:', mailOptions.subject);
-            return { success: true, messageId: 'logged' };
         }
+    }
+    
+    console.log('No email service configured, logging email:');
+    console.log('To:', mailOptions.to, 'Subject:', mailOptions.subject);
+    return { success: true, messageId: 'logged' };
     }
 };
 
