@@ -1,7 +1,17 @@
 // Email service for sending notifications
-// Using a simple console log approach - replace with actual email service like nodemailer, sendgrid, etc.
+// Supports both Resend API (recommended for cloud deployment) and SMTP
 const nodeMailer = require('nodemailer')
+const { Resend } = require('resend')
 require('dotenv').config()
+
+// Initialize Resend if API key is available
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+
+// Check which email method to use
+const useResend = () => {
+    return !!process.env.RESEND_API_KEY;
+}
+
 const createTransporter = () => {
     console.log('SMTP Config:', process.env.SMTP_HOST, process.env.SMTP_USER, process.env.SMTP_PASS ? '***' : 'missing');
   if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
@@ -22,6 +32,43 @@ const createTransporter = () => {
   }
   console.log('SMTP config missing, using fallback');
   return null;
+};
+
+// Generic email sending function that uses Resend or SMTP
+const sendEmail = async (mailOptions) => {
+    if (useResend()) {
+        console.log('Using Resend API to send email...');
+        try {
+            const { data, error } = await resend.emails.send({
+                from: process.env.EMAIL_FROM || 'JobNest <onboarding@resend.dev>',
+                to: mailOptions.to,
+                subject: mailOptions.subject,
+                html: mailOptions.html,
+                text: mailOptions.text
+            });
+            if (error) {
+                console.error('Resend error:', error);
+                throw new Error(error.message);
+            }
+            console.log('Email sent via Resend:', data?.id);
+            return { success: true, messageId: data?.id };
+        } catch (err) {
+            console.error('Resend send error:', err);
+            throw err;
+        }
+    } else {
+        const transporter = createTransporter();
+        if (transporter) {
+            console.log('Using SMTP to send email...');
+            const info = await transporter.sendMail(mailOptions);
+            console.log('Email sent via SMTP:', info.messageId);
+            return { success: true, messageId: info.messageId };
+        } else {
+            console.log('No email service configured, logging email:');
+            console.log('To:', mailOptions.to, 'Subject:', mailOptions.subject);
+            return { success: true, messageId: 'logged' };
+        }
+    }
 };
 
 
@@ -437,34 +484,10 @@ const sendOtpEmail = async (recipientEmail, otp, userName) => {
             `
         }
 
-        const transporter = createTransporter()
-        if (transporter) {
-            console.log('Attempting to send OTP email...');
-            try {
-                const info = await transporter.sendMail(mailOptions)
-                console.log('OTP Email sent successfully:', info.messageId)
-                return { success: true, message: 'OTP sent successfully' }
-            } catch (sendError) {
-                console.error('SMTP send error:', sendError.message);
-                console.error('Full error:', JSON.stringify(sendError, null, 2));
-                throw sendError;
-            }
-        } else {
-            // Fallback: log to console in development
-            console.log(`
-            ======== OTP VERIFICATION EMAIL ========
-            To: ${recipientEmail}
-            Subject: Your JobNest Verification Code
-            
-            Hello ${userName},
-            
-            Your verification code is: ${otp}
-            
-            This code will expire in 10 minutes.
-            ========================================
-            `)
-            return { success: true, message: 'OTP logged (dev mode)' }
-        }
+        console.log('Attempting to send OTP email to:', recipientEmail);
+        const result = await sendEmail(mailOptions);
+        console.log('OTP Email sent successfully:', result.messageId);
+        return { success: true, message: 'OTP sent successfully' }
     } catch (error) {
         console.error('Error sending OTP email:', error)
         throw error
