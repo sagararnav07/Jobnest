@@ -1,5 +1,5 @@
 // Email service for sending notifications
-// Supports Mailjet, Brevo (HTTP API), Resend API, and SMTP
+// Supports Elastic Email, Mailjet, Brevo (HTTP API), Resend API, and SMTP
 const nodeMailer = require('nodemailer')
 const { Resend } = require('resend')
 const Mailjet = require('node-mailjet')
@@ -21,8 +21,9 @@ if (process.env.BREVO_API_KEY) {
     brevoApiInstance.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, process.env.BREVO_API_KEY);
 }
 
-// Check which email method to use (priority: Brevo > Mailjet > Resend > SMTP)
+// Check which email method to use (priority: ElasticEmail > Brevo > Mailjet > Resend > SMTP)
 const getEmailMethod = () => {
+    if (process.env.ELASTICEMAIL_API_KEY) return 'elasticemail';
     if (process.env.BREVO_API_KEY) return 'brevo';
     if (process.env.MAILJET_API_KEY && process.env.MAILJET_SECRET_KEY) return 'mailjet';
     if (process.env.RESEND_API_KEY) return 'resend';
@@ -52,10 +53,44 @@ const createTransporter = () => {
   return null;
 };
 
-// Generic email sending function that uses Brevo API, Mailjet, Resend, or SMTP
+// Generic email sending function that uses Elastic Email, Brevo API, Mailjet, Resend, or SMTP
 const sendEmail = async (mailOptions) => {
     const method = getEmailMethod();
     console.log('Using email method:', method);
+    
+    if (method === 'elasticemail') {
+        console.log('Using Elastic Email API to send email...');
+        try {
+            const senderEmail = process.env.ELASTICEMAIL_SENDER || 'jobnest17@gmail.com';
+            const params = new URLSearchParams({
+                apikey: process.env.ELASTICEMAIL_API_KEY,
+                from: senderEmail,
+                fromName: 'JobNest',
+                to: mailOptions.to,
+                subject: mailOptions.subject,
+                bodyHtml: mailOptions.html,
+                bodyText: mailOptions.text || '',
+                isTransactional: 'true'
+            });
+            
+            const response = await fetch('https://api.elasticemail.com/v2/email/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: params.toString()
+            });
+            
+            const result = await response.json();
+            if (!result.success) {
+                console.error('Elastic Email error:', result.error);
+                throw new Error(result.error || 'Failed to send email');
+            }
+            console.log('Email sent via Elastic Email:', result.data?.messageid);
+            return { success: true, messageId: result.data?.messageid };
+        } catch (err) {
+            console.error('Elastic Email send error:', err.message);
+            throw err;
+        }
+    }
     
     if (method === 'brevo') {
         console.log('Using Brevo HTTP API to send email...');
