@@ -18,13 +18,6 @@ Auth.register = async (user) => {
         validateEmail(user.emailId)
         validatePassword(user.password)
         
-        // Verify that email has been verified via OTP
-        if (!OtpController.isEmailVerified(user.emailId)) {
-            let error = new Error('Email not verified. Please verify your email first.')
-            error.status = 400
-            throw error
-        }
-        
         if (user.userType === 'Jobseeker')
             return Auth.jobSeekerRegister(user)
         else if (user.userType === 'Employeer')
