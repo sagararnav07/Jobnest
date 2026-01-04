@@ -1,8 +1,9 @@
 // Email service for sending notifications
-// Supports Mailjet, Brevo (Sendinblue), Resend API, and SMTP
+// Supports Mailjet, Brevo (HTTP API), Resend API, and SMTP
 const nodeMailer = require('nodemailer')
 const { Resend } = require('resend')
 const Mailjet = require('node-mailjet')
+const SibApiV3Sdk = require('@getbrevo/brevo')
 require('dotenv').config()
 
 // Initialize Resend if API key is available
@@ -13,10 +14,17 @@ const mailjet = (process.env.MAILJET_API_KEY && process.env.MAILJET_SECRET_KEY)
     ? Mailjet.apiConnect(process.env.MAILJET_API_KEY, process.env.MAILJET_SECRET_KEY)
     : null;
 
-// Check which email method to use (priority: Mailjet > Brevo > Resend > SMTP)
+// Initialize Brevo API client
+let brevoApiInstance = null;
+if (process.env.BREVO_API_KEY) {
+    brevoApiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
+    brevoApiInstance.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, process.env.BREVO_API_KEY);
+}
+
+// Check which email method to use (priority: Brevo > Mailjet > Resend > SMTP)
 const getEmailMethod = () => {
-    if (process.env.MAILJET_API_KEY && process.env.MAILJET_SECRET_KEY) return 'mailjet';
     if (process.env.BREVO_API_KEY) return 'brevo';
+    if (process.env.MAILJET_API_KEY && process.env.MAILJET_SECRET_KEY) return 'mailjet';
     if (process.env.RESEND_API_KEY) return 'resend';
     if (process.env.SMTP_HOST) return 'smtp';
     return 'none';
@@ -44,23 +52,33 @@ const createTransporter = () => {
   return null;
 };
 
-// Create Brevo transporter
-const createBrevoTransporter = () => {
-    return nodeMailer.createTransport({
-        host: 'smtp-relay.brevo.com',
-        port: 587,
-        secure: false,
-        auth: {
-            user: process.env.BREVO_USER || process.env.SMTP_USER,
-            pass: process.env.BREVO_API_KEY
-        }
-    });
-};
-
-// Generic email sending function that uses Mailjet, Brevo, Resend, or SMTP
+// Generic email sending function that uses Brevo API, Mailjet, Resend, or SMTP
 const sendEmail = async (mailOptions) => {
     const method = getEmailMethod();
     console.log('Using email method:', method);
+    
+    if (method === 'brevo') {
+        console.log('Using Brevo HTTP API to send email...');
+        try {
+            const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
+            sendSmtpEmail.subject = mailOptions.subject;
+            sendSmtpEmail.htmlContent = mailOptions.html;
+            sendSmtpEmail.textContent = mailOptions.text;
+            sendSmtpEmail.sender = { 
+                name: 'JobNest', 
+                email: process.env.BREVO_SENDER || process.env.BREVO_USER || 'jobnest17@gmail.com'
+            };
+            sendSmtpEmail.to = [{ email: mailOptions.to }];
+            
+            const result = await brevoApiInstance.sendTransacEmail(sendSmtpEmail);
+            console.log('Email sent via Brevo API:', result?.body?.messageId || 'success');
+            return { success: true, messageId: result?.body?.messageId };
+        } catch (err) {
+            console.error('Brevo API send error:', err.message);
+            console.error('Brevo error details:', JSON.stringify(err?.body || err));
+            throw err;
+        }
+    }
     
     if (method === 'mailjet') {
         console.log('Using Mailjet API to send email...');
@@ -84,25 +102,6 @@ const sendEmail = async (mailOptions) => {
             return { success: true, messageId: result.body?.Messages?.[0]?.MessageID };
         } catch (err) {
             console.error('Mailjet send error:', err.message);
-            throw err;
-        }
-    }
-    
-    if (method === 'brevo') {
-        console.log('Using Brevo to send email...');
-        try {
-            const transporter = createBrevoTransporter();
-            const info = await transporter.sendMail({
-                from: process.env.EMAIL_FROM || process.env.BREVO_USER || process.env.SMTP_USER,
-                to: mailOptions.to,
-                subject: mailOptions.subject,
-                html: mailOptions.html,
-                text: mailOptions.text
-            });
-            console.log('Email sent via Brevo:', info.messageId);
-            return { success: true, messageId: info.messageId };
-        } catch (err) {
-            console.error('Brevo send error:', err.message);
             throw err;
         }
     }
