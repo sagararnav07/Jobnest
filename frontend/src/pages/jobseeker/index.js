@@ -1,0 +1,6 @@
+export { default as Dashboard } from './Dashboard'
+export { default as Profile } from './Profile'
+export { default as Jobs } from './Jobs'
+export { default as JobDetails } from './JobDetails'
+export { default as MyApplications } from './MyApplications'
+export { default as Assessment } from './Assessment'

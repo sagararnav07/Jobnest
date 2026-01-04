@@ -1,0 +1,8 @@
+export { default as About } from './About'
+export { default as Contact } from './Contact'
+export { default as PrivacyPolicy } from './PrivacyPolicy'
+export { default as Terms } from './Terms'
+export { default as FAQ } from './FAQ'
+export { default as HelpCenter } from './HelpCenter'
+export { default as Careers } from './Careers'
+export { default as Blog } from './Blog'

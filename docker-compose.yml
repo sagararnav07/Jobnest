@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7
+    container_name: jobnest-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: Jobnest
+    volumes:
+      - mongodb_data:/data/db
+    ports:
+      - "27017:27017"
+    networks:
+      - jobnest-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: jobnest-backend
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=5001
+      - MONGODB_URL=mongodb://mongodb:27017/Jobnest
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key}
+      - FRONTEND_URL=http://localhost:3000
+    ports:
+      - "5001:5001"
+    depends_on:
+      - mongodb
+    volumes:
+      - ./backend/data/Uploads:/app/data/Uploads
+      - ./backend/data/Reports:/app/data/Reports
+    networks:
+      - jobnest-network
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=http://localhost:5001/api/v1
+    container_name: jobnest-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - jobnest-network
+
+volumes:
+  mongodb_data:
+
+networks:
+  jobnest-network:
+    driver: bridge
