@@ -142,7 +142,6 @@ const sendEmail = async (mailOptions) => {
     console.log('No email service configured, logging email:');
     console.log('To:', mailOptions.to, 'Subject:', mailOptions.subject);
     return { success: true, messageId: 'logged' };
-    }
 };
 
 
