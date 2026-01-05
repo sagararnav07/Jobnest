@@ -9,8 +9,9 @@ import {
 // Layouts
 import { AuthLayout, DashboardLayout, StaticLayout } from '../layouts'
 
-// Auth Pages
-import { Login, RegisterJobseeker, RegisterEmployer } from '../pages/auth'
+// Auth Pages - Direct imports for Clerk components
+import LoginClerk from '../pages/auth/LoginClerk'
+import RegisterClerk from '../pages/auth/RegisterClerk'
 
 // Home
 import { Home } from '../pages/home'
@@ -46,13 +47,13 @@ const AppRouter = () => {
             {/* Public Routes */}
             <Route path="/" element={<Home />} />
 
-            {/* Auth Routes - Guest Only */}
+            {/* Auth Routes - Guest Only (Using Clerk) */}
             <Route element={<AuthLayout />}>
                 <Route
                     path="/login"
                     element={
                         <GuestRoute>
-                            <Login />
+                            <LoginClerk />
                         </GuestRoute>
                     }
                 />
@@ -60,7 +61,7 @@ const AppRouter = () => {
                     path="/register"
                     element={
                         <GuestRoute>
-                            <RegisterJobseeker />
+                            <RegisterClerk />
                         </GuestRoute>
                     }
                 />
@@ -68,7 +69,7 @@ const AppRouter = () => {
                     path="/register/jobseeker"
                     element={
                         <GuestRoute>
-                            <RegisterJobseeker />
+                            <RegisterClerk />
                         </GuestRoute>
                     }
                 />
@@ -76,7 +77,7 @@ const AppRouter = () => {
                     path="/register/employer"
                     element={
                         <GuestRoute>
-                            <RegisterEmployer />
+                            <RegisterClerk />
                         </GuestRoute>
                     }
                 />
