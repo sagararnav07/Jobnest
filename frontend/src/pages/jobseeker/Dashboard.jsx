@@ -22,13 +22,13 @@ const JobseekerDashboard = () => {
     const loadDashboardData = async () => {
         try {
             setLoading(true)
-            
+
             // Load applications
             const appsResponse = await jobseekerService.getMyApplications()
-            
+
             // Load matched jobs if assessment complete
             let jobs = []
-            if (isAssessmentComplete()) {
+            if (isAssessmentComplete) {
                 const jobsResponse = await jobseekerService.getMatchedJobs()
                 jobs = jobsResponse.jobs || []
             }
@@ -46,7 +46,7 @@ const JobseekerDashboard = () => {
         }
     }
 
-    const assessmentComplete = isAssessmentComplete()
+    const assessmentComplete = isAssessmentComplete
 
     // Animation variants
     const containerVariants = {
@@ -59,16 +59,16 @@ const JobseekerDashboard = () => {
 
     const itemVariants = {
         hidden: { opacity: 0, y: 20 },
-        visible: { 
-            opacity: 1, 
+        visible: {
+            opacity: 1,
             y: 0,
             transition: { type: "spring", stiffness: 100 }
         }
     }
 
     const cardHoverVariants = {
-        hover: { 
-            y: -8, 
+        hover: {
+            y: -8,
             scale: 1.02,
             transition: { type: "spring", stiffness: 400, damping: 10 }
         }
@@ -95,7 +95,7 @@ const JobseekerDashboard = () => {
     }
 
     return (
-        <motion.div 
+        <motion.div
             className="space-y-8 padding-10"
             variants={containerVariants}
             initial="hidden"
@@ -104,51 +104,51 @@ const JobseekerDashboard = () => {
             {/* Welcome Section with animated gradient */}
             <motion.div
                 variants={itemVariants}
-                style={{backgroundColor:"#3556d6ff"}}
+                style={{ backgroundColor: "#3556d6ff" }}
                 className=" relative overflow-hidden rounded-3xl p-8 lg:p-10 indigo"
-                // style={{
-                //     background: 'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)'
-                // }}
+            // style={{
+            //     background: 'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)'
+            // }}
             >
                 {/* Animated background shapes */}
-                <motion.div 
+                <motion.div
                     className="absolute top-0 right-0 w-64 h-64 rounded-full bg-white/10 blur-3xl"
-                    animate={{ 
-                        x: [0, 30, 0], 
+                    animate={{
+                        x: [0, 30, 0],
                         y: [0, -20, 0],
                         scale: [1, 1.2, 1]
                     }}
                     transition={{ repeat: Infinity, duration: 8, ease: "easeInOut" }}
                 />
-                <motion.div 
+                <motion.div
                     className="absolute bottom-0 left-0 w-48 h-48 rounded-full bg-white/10 blur-2xl"
-                    animate={{ 
-                        x: [0, -20, 0], 
+                    animate={{
+                        x: [0, -20, 0],
                         y: [0, 30, 0],
                         scale: [1, 1.3, 1]
                     }}
                     transition={{ repeat: Infinity, duration: 6, ease: "easeInOut" }}
                 />
-                
+
                 <div className=" padding-10 relative z-10">
-                    <motion.div 
-                       
+                    <motion.div
+
                         initial={{ opacity: 0, x: -30 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: 0.2, type: "spring" }}
                     >
                         <span className="padding-10 inline-block px-4 py-1.5 bg-white/20 backdrop-blur-sm rounded-xl text-white/90 text-sm font-medium mb-4">
-                             {assessmentComplete ? 'Profile Complete' : 'Getting Started'}
+                            {assessmentComplete ? 'Profile Complete' : 'Getting Started'}
                         </span>
                     </motion.div>
-                    
-                    <motion.h1 
+
+                    <motion.h1
                         className="text-3xl lg:text-4xl font-bold text-white mb-3"
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.3 }}
                     >
-                        Welcome, {user?.name?.split(' ')[0] || 'there'}! 
+                        Welcome, {user?.name?.split(' ')[0] || 'there'}!
                         {/* <motion.span 
                             className="inline-block ml-2"
                             animate={{ rotate: [0, 14, -8, 14, -4, 10, 0] }}
@@ -157,20 +157,20 @@ const JobseekerDashboard = () => {
                             👋
                         </motion.span> */}
                     </motion.h1>
-                    
-                    <motion.p 
+
+                    <motion.p
                         className="padding-10 text-white/80 text-lg max-w-xl"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: 0.4 }}
                     >
-                        {assessmentComplete 
+                        {assessmentComplete
                             ? "You're all set! Check out your matched jobs below and find your dream career."
                             : "Complete your profile and assessment to unlock personalized job matches."}
                     </motion.p>
 
                     {/* Quick stats in welcome */}
-                    <motion.div 
+                    <motion.div
                         className="flex flex-wrap gap-4 mt-6"
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -190,7 +190,7 @@ const JobseekerDashboard = () => {
 
             {/* Action Cards - Show if not complete */}
             {!assessmentComplete && (
-                <motion.div variants={itemVariants}  className="padding-10 grid md:grid-cols-2 gap-6">
+                <motion.div variants={itemVariants} className="padding-10 grid md:grid-cols-2 gap-6">
                     {/* <motion.div
                         className='padding-10'
                         whileHover={{ y: -5, scale: 1.02 }}
@@ -232,7 +232,7 @@ const JobseekerDashboard = () => {
                             </Link>
                         </Card>
                     </motion.div> */}
-                    <motion.div  
+                    <motion.div
                         className='padding-10'
                         whileHover={{ y: -5, scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
@@ -240,7 +240,7 @@ const JobseekerDashboard = () => {
                         <Card className="padding-10 border-2 border-dashed border-indigo-200 bg-gradient-to-br from-indigo-50 to-purple-50 p-6 cursor-pointer group">
                             <Link to="/jobseeker/assessment" className="block">
                                 <div className="padding-7 flex items-start gap-4">
-                                     <motion.div 
+                                    <motion.div
                                         className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/30"
                                         whileHover={{ rotate: 10 }}
                                     >
@@ -257,10 +257,10 @@ const JobseekerDashboard = () => {
                                         </p>
                                         <span className="padding-10 inline-flex items-center text-indigo-600 font-semibold group-hover:gap-3 transition-all gap-1">
                                             Start Assessment
-                                            <svg 
-                                                className="w-5 h-5" 
-                                                fill="none" 
-                                                stroke="currentColor" 
+                                            <svg
+                                                className="w-5 h-5"
+                                                fill="none"
+                                                stroke="currentColor"
                                                 viewBox="0 0 24 24"
                                                 animate={{ x: [0, 5, 0] }}
                                                 transition={{ repeat: Infinity, duration: 1.5 }}
@@ -273,7 +273,7 @@ const JobseekerDashboard = () => {
                             </Link>
                         </Card>
                     </motion.div>
-                    <motion.div  
+                    <motion.div
                         className='padding-10'
                         whileHover={{ y: -5, scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
@@ -281,7 +281,7 @@ const JobseekerDashboard = () => {
                         <Card className="padding-10 border-2 border-dashed border-indigo-200 bg-gradient-to-br from-indigo-50 to-purple-50 p-6 cursor-pointer group">
                             <Link to="/jobseeker/profile" className="block">
                                 <div className="padding-7 flex items-start gap-4">
-                                    <motion.div 
+                                    <motion.div
                                         className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/30"
                                         whileHover={{ rotate: -10 }}
                                     >
@@ -298,10 +298,10 @@ const JobseekerDashboard = () => {
                                         </p>
                                         <span className="padding-10 inline-flex items-center text-indigo-600 font-semibold group-hover:gap-3 transition-all gap-1">
                                             Update Profile
-                                            <svg 
-                                                className="w-5 h-5" 
-                                                fill="none" 
-                                                stroke="currentColor" 
+                                            <svg
+                                                className="w-5 h-5"
+                                                fill="none"
+                                                stroke="currentColor"
                                                 viewBox="0 0 24 24"
                                                 animate={{ x: [0, 5, 0] }}
                                                 transition={{ repeat: Infinity, duration: 1.5 }}
@@ -320,30 +320,30 @@ const JobseekerDashboard = () => {
             {/* Stats Grid */}
             <div variants={itemVariants} className="padding-10 grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
                 {[
-                    { 
-                        value: stats.matchedJobs, 
-                        label: 'Matched Jobs', 
+                    {
+                        value: stats.matchedJobs,
+                        label: 'Matched Jobs',
                         color: 'from-blue-500 to-indigo-600',
                         bgColor: 'bg-blue-50',
                         icon: '🎯'
                     },
-                    { 
-                        value: stats.applications, 
-                        label: 'Applications', 
+                    {
+                        value: stats.applications,
+                        label: 'Applications',
                         color: 'from-blue-500 to-indigo-600',
                         bgColor: 'bg-emerald-50',
                         icon: '📄'
                     },
-                    { 
-                        value: assessmentComplete ? '✓' : '○', 
-                        label: 'Assessment', 
+                    {
+                        value: assessmentComplete ? '✓' : '○',
+                        label: 'Assessment',
                         color: 'from-purple-500 to-pink-600',
                         bgColor: 'bg-purple-50',
                         icon: assessmentComplete ? '🏆' : '📋'
                     },
-                    { 
-                        value: stats.profileComplete ? '✓' : '○', 
-                        label: 'Profile', 
+                    {
+                        value: stats.profileComplete ? '✓' : '○',
+                        label: 'Profile',
                         color: 'from-orange-500 to-red-500',
                         bgColor: 'bg-orange-50',
                         icon: stats.profileComplete ? '⭐' : '👤'
@@ -364,7 +364,7 @@ const JobseekerDashboard = () => {
                             >
                                 {stat.icon}
                             </div> */}
-                            <motion.p 
+                            <motion.p
                                 className={`text-4xl font-black bg-gradient-to-r ${stat.color} bg-clip-text text-transparent`}
                                 initial={{ scale: 0 }}
                                 animate={{ scale: 1 }}
@@ -387,7 +387,7 @@ const JobseekerDashboard = () => {
                             <p className="text-gray-500">Based on your personality profile</p>
                         </div>
                         <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                            <Link 
+                            <Link
                                 to="/jobseeker/jobs"
                                 className="padding-10 inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-semibold shadow-lg shadow-indigo-500/30 hover:shadow-xl transition-shadow"
                             >
@@ -427,8 +427,8 @@ const JobseekerDashboard = () => {
                                         </p>
                                         <div className="flex flex-wrap gap-2 mb-4">
                                             {job.skills?.slice(0, 3).map((skill) => (
-                                                <span 
-                                                    key={skill} 
+                                                <span
+                                                    key={skill}
                                                     className="padding-10 px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-xs font-medium"
                                                 >
                                                     {skill}

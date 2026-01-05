@@ -11,7 +11,7 @@ const DashboardLayout = () => {
     const navigate = useNavigate()
     const location = useLocation()
     const [sidebarOpen, setSidebarOpen] = useState(true)
-    const profileComplete = isProfileComplete()
+    const profileComplete = isProfileComplete
 
     const handleLogout = () => {
         logout()
@@ -340,7 +340,7 @@ const DashboardLayout = () => {
                             </motion.div>
                         </main>
                     </div>
-                    
+
                     {/* Footer */}
                     <Footer />
                 </div>
