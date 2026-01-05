@@ -16,13 +16,20 @@ export const AuthProvider = ({ children }) => {
     const { user: clerkUser } = useClerkUser()
     const [user, setUser] = useState(null)
     const [loading, setLoading] = useState(true)
+    const [syncing, setSyncing] = useState(false)
     const [error, setError] = useState(null)
-    const [userType, setUserType] = useState(null)
+    const [userType, setUserType] = useState(() => localStorage.getItem('userType'))
 
     // Sync user from Clerk to our database
     const syncUserWithBackend = useCallback(async (clerkUserData, type) => {
+        if (syncing) return null
+        setSyncing(true)
+
         try {
             const token = await getToken()
+            if (!token) {
+                throw new Error('No auth token available')
+            }
 
             // Extract user info from Clerk user object
             const email = clerkUserData?.primaryEmailAddress?.emailAddress ||
@@ -62,30 +69,40 @@ export const AuthProvider = ({ children }) => {
         } catch (err) {
             console.error('Failed to sync user:', err)
             throw err
+        } finally {
+            setSyncing(false)
         }
-    }, [getToken])
+    }, [getToken, syncing])
 
-    // Initialize auth on mount
+    // Initialize auth on mount and when Clerk state changes
     useEffect(() => {
         if (!clerkLoaded) return
 
         const initAuth = async () => {
             try {
                 if (clerkSignedIn && clerkUser) {
-                    // Try to detect user type from localStorage or prompt
-                    let type = localStorage.getItem('userType')
+                    // Try to detect user type from localStorage
+                    const storedType = localStorage.getItem('userType')
 
-                    if (!type) {
-                        // If no user type saved, we'll let the user choose during the flow
+                    if (!storedType) {
+                        // User is signed in but hasn't selected a type yet
+                        // This happens after OAuth sign-in without going through our flow
                         setUser(null)
                         setLoading(false)
                         return
                     }
 
                     // Sync with backend
-                    await syncUserWithBackend(clerkUser, type)
+                    try {
+                        await syncUserWithBackend(clerkUser, storedType)
+                    } catch (err) {
+                        console.error('Backend sync failed:', err)
+                        // Don't block the auth flow if sync fails
+                        setUser(null)
+                    }
                 } else {
                     setUser(null)
+                    setUserType(null)
                 }
             } catch (err) {
                 console.error('Auth initialization error:', err)
@@ -96,7 +113,7 @@ export const AuthProvider = ({ children }) => {
         }
 
         initAuth()
-    }, [clerkLoaded, clerkSignedIn, clerkUser, syncUserWithBackend])
+    }, [clerkLoaded, clerkSignedIn, clerkUser?.id]) // Use clerkUser.id to avoid infinite loops
 
     // Complete user profile after signup
     const completeProfile = useCallback(async (profileData) => {

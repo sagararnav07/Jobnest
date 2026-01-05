@@ -1,19 +1,51 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { SignUp } from '@clerk/clerk-react'
+import { SignUp, useAuth as useClerkAuth } from '@clerk/clerk-react'
 import { motion } from 'framer-motion'
 import { useAuth } from '../../contexts/AuthContext'
 
 const RegisterClerk = () => {
     const navigate = useNavigate()
-    const { setUserTypeForSignup } = useAuth()
+    const { isSignedIn: clerkSignedIn } = useClerkAuth()
+    const { setUserTypeForSignup, syncUserWithBackend, clerkUser, userType: storedUserType } = useAuth()
     const [userType, setUserType] = useState('Jobseeker')
     const [showSignUp, setShowSignUp] = useState(false)
+    const [isProcessing, setIsProcessing] = useState(false)
+
+    // Handle post-authentication flow
+    useEffect(() => {
+        const handlePostAuth = async () => {
+            if (clerkSignedIn && clerkUser && storedUserType && !isProcessing) {
+                setIsProcessing(true)
+                try {
+                    await syncUserWithBackend(clerkUser, storedUserType)
+                    const dashboardPath = storedUserType === 'Jobseeker'
+                        ? '/jobseeker/dashboard'
+                        : '/employer/dashboard'
+                    navigate(dashboardPath, { replace: true })
+                } catch (err) {
+                    console.error('Failed to sync after sign-up:', err)
+                    setIsProcessing(false)
+                }
+            }
+        }
+        handlePostAuth()
+    }, [clerkSignedIn, clerkUser, storedUserType, syncUserWithBackend, navigate, isProcessing])
 
     const handleUserTypeSelect = (type) => {
         setUserType(type)
         setUserTypeForSignup(type)
         setShowSignUp(true)
+    }
+
+    // Show loading while processing post-auth
+    if (isProcessing) {
+        return (
+            <div className="w-full flex flex-col items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-indigo-600 mb-4"></div>
+                <p className="text-gray-600">Creating your account...</p>
+            </div>
+        )
     }
 
     return (
@@ -130,6 +162,7 @@ const RegisterClerk = () => {
                     {/* Clerk SignUp Component */}
                     <SignUp
                         signInUrl="/login"
+                        forceRedirectUrl={userType === 'Jobseeker' ? '/jobseeker/dashboard' : '/employer/dashboard'}
                         appearance={{
                             elements: {
                                 rootBox: 'w-full',

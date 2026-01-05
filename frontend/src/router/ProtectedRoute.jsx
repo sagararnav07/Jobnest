@@ -102,8 +102,8 @@ export const ProfileRequiredRoute = ({ children }) => {
     }
 
     if (!isProfileComplete()) {
-        const profilePath = user?.userType === 'Jobseeker' 
-            ? '/jobseeker/profile' 
+        const profilePath = user?.userType === 'Jobseeker'
+            ? '/jobseeker/profile'
             : '/employer/profile'
         return <Navigate to={profilePath} state={{ from: location, incomplete: true }} replace />
     }
@@ -113,17 +113,29 @@ export const ProfileRequiredRoute = ({ children }) => {
 
 // Guest Route - only accessible when not logged in
 export const GuestRoute = ({ children }) => {
-    const { isAuthenticated, user, loading } = useAuth()
+    const { isAuthenticated, user, userType, loading, clerkSignedIn } = useAuth()
 
     if (loading) {
         return <LoadingSpinner />
     }
 
-    if (isAuthenticated) {
-        const dashboardPath = user?.userType === 'Jobseeker' 
-            ? '/jobseeker/dashboard' 
+    // If user is fully authenticated (Clerk + backend synced), redirect to dashboard
+    if (isAuthenticated && user) {
+        const dashboardPath = user?.userType === 'Jobseeker'
+            ? '/jobseeker/dashboard'
             : '/employer/dashboard'
         return <Navigate to={dashboardPath} replace />
+    }
+
+    // If signed in with Clerk but no user type selected yet, show the auth page
+    // This allows users to select their user type after OAuth sign-in
+    if (clerkSignedIn && !userType) {
+        return children
+    }
+
+    // If signed in with Clerk and has userType but not synced yet, show loading
+    if (clerkSignedIn && userType && !user) {
+        return <LoadingSpinner />
     }
 
     return children
