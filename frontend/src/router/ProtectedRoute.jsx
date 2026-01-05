@@ -122,9 +122,19 @@ export const GuestRoute = ({ children }) => {
 
     // Show loading while auth is initializing, syncing, or in transition
     if (loading || syncing || isInTransition) {
-
-        // Otherwise show the auth page - let the component handle the flow
-        return children
+        return <LoadingSpinner />
     }
 
-    export default ProtectedRoute
+    // If user is fully authenticated (Clerk + backend synced), redirect to dashboard
+    if (isAuthenticated && user) {
+        const dashboardPath = user?.userType === 'Jobseeker'
+            ? '/jobseeker/dashboard'
+            : '/employer/dashboard'
+        return <Navigate to={dashboardPath} replace />
+    }
+
+    // Otherwise show the auth page - let the component handle the flow
+    return children
+}
+
+export default ProtectedRoute
