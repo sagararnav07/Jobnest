@@ -6,6 +6,12 @@ const path = require('path');
 const dotenv = require('dotenv');
 const { clerkMiddleware } = require('@clerk/express');
 dotenv.config({ path: path.join(__dirname, '.env') });
+
+// Debug: Log Clerk keys status (don't log actual keys in production)
+console.log('Clerk Configuration Status:');
+console.log('- CLERK_PUBLISHABLE_KEY:', process.env.CLERK_PUBLISHABLE_KEY ? 'SET (' + process.env.CLERK_PUBLISHABLE_KEY.substring(0, 10) + '...)' : 'NOT SET');
+console.log('- CLERK_SECRET_KEY:', process.env.CLERK_SECRET_KEY ? 'SET' : 'NOT SET');
+
 const create = require('./utlities/dbsetup')
 const app = express();
 const server = http.createServer(app);

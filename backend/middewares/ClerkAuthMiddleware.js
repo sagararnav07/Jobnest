@@ -5,6 +5,7 @@ const { requireAuth } = require('@clerk/express');
  * Verifies JWT tokens issued by Clerk
  * Automatically rejects requests without valid tokens
  */
-const clerkAuthMiddleware = requireAuth();
 
-module.exports = clerkAuthMiddleware;
+// Export the middleware function directly
+// The clerkMiddleware in app.js must be initialized first
+module.exports = requireAuth();
