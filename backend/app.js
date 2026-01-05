@@ -52,11 +52,23 @@ app.use(cors({
     },
     credentials: true
 }))
-// Clerk middleware - process Clerk authentication
-app.use(clerkMiddleware({
-    publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
-    secretKey: process.env.CLERK_SECRET_KEY
-}))
+
+// Only apply Clerk middleware if keys are available
+if (process.env.CLERK_PUBLISHABLE_KEY && process.env.CLERK_SECRET_KEY) {
+    app.use(clerkMiddleware({
+        publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
+        secretKey: process.env.CLERK_SECRET_KEY
+    }))
+    console.log('Clerk middleware initialized successfully')
+} else {
+    console.warn('WARNING: Clerk keys not found, Clerk middleware not initialized')
+    // Add a dummy middleware that adds a warning to the auth object
+    app.use((req, res, next) => {
+        req.auth = { userId: null, clerkError: 'Clerk not configured' }
+        next()
+    })
+}
+
 app.use(bodyParser.json())
 app.use(requestLogger)
 
