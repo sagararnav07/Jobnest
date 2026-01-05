@@ -10,14 +10,19 @@ const LoadingSpinner = () => (
 
 // Protected Route - requires authentication
 export const ProtectedRoute = ({ children }) => {
-    const { clerkSignedIn, loading, syncing } = useAuth()
+    const { user, loading, syncing, isClerkAuthenticated } = useAuth()
     const location = useLocation()
 
     if (loading || syncing) {
         return <LoadingSpinner />
     }
 
-    if (!clerkSignedIn) {
+    // If Clerk is authenticated but user not synced yet, show loading
+    if (isClerkAuthenticated && !user) {
+        return <LoadingSpinner />
+    }
+
+    if (!user) {
         return <Navigate to="/login" state={{ from: location }} replace />
     }
 
@@ -26,34 +31,55 @@ export const ProtectedRoute = ({ children }) => {
 
 // Jobseeker Only Route
 export const JobseekerRoute = ({ children }) => {
-    const { clerkSignedIn, userType, loading, syncing } = useAuth()
+    const { user, userType, loading, syncing, isClerkAuthenticated, isInTransition } = useAuth()
     const location = useLocation()
 
+    console.log('[JobseekerRoute] Check:', { user: !!user, userType, loading, syncing, isClerkAuthenticated, isInTransition, path: location.pathname })
+
+    // Show loading while auth is initializing or syncing
     if (loading || syncing) {
+        console.log('[JobseekerRoute] Still loading/syncing')
         return <LoadingSpinner />
     }
 
-    if (!clerkSignedIn) {
+    // If Clerk is authenticated but user not synced yet, show loading
+    // This handles the race condition after OTP verification
+    if (isClerkAuthenticated && !user) {
+        console.log('[JobseekerRoute] Clerk authenticated but user not synced, showing loading')
+        return <LoadingSpinner />
+    }
+
+    // Check if user exists (synced with backend)
+    if (!user) {
+        console.log('[JobseekerRoute] No user, redirecting to /login')
         return <Navigate to="/login" state={{ from: location }} replace />
     }
 
     if (userType && userType !== 'Jobseeker') {
+        console.log('[JobseekerRoute] Not a jobseeker, redirecting to employer dashboard')
         return <Navigate to="/employer/dashboard" replace />
     }
 
+    console.log('[JobseekerRoute] Access granted')
     return children
 }
 
 // Employer Only Route
 export const EmployerRoute = ({ children }) => {
-    const { clerkSignedIn, userType, loading, syncing } = useAuth()
+    const { user, userType, loading, syncing, isClerkAuthenticated } = useAuth()
     const location = useLocation()
 
     if (loading || syncing) {
         return <LoadingSpinner />
     }
 
-    if (!clerkSignedIn) {
+    // If Clerk is authenticated but user not synced yet, show loading
+    if (isClerkAuthenticated && !user) {
+        return <LoadingSpinner />
+    }
+
+    // Check if user exists (synced with backend)
+    if (!user) {
         return <Navigate to="/login" state={{ from: location }} replace />
     }
 
@@ -66,14 +92,14 @@ export const EmployerRoute = ({ children }) => {
 
 // Assessment Required Route - jobseeker must complete assessment
 export const AssessmentRequiredRoute = ({ children }) => {
-    const { clerkSignedIn, userType, isAssessmentComplete, loading, syncing } = useAuth()
+    const { user, userType, isAssessmentComplete, loading, syncing } = useAuth()
     const location = useLocation()
 
     if (loading || syncing) {
         return <LoadingSpinner />
     }
 
-    if (!clerkSignedIn) {
+    if (!user) {
         return <Navigate to="/login" state={{ from: location }} replace />
     }
 
@@ -90,14 +116,14 @@ export const AssessmentRequiredRoute = ({ children }) => {
 
 // Profile Required Route - user must complete profile
 export const ProfileRequiredRoute = ({ children }) => {
-    const { clerkSignedIn, isProfileComplete, userType, loading, syncing } = useAuth()
+    const { user, isProfileComplete, userType, loading, syncing } = useAuth()
     const location = useLocation()
 
     if (loading || syncing) {
         return <LoadingSpinner />
     }
 
-    if (!clerkSignedIn) {
+    if (!user) {
         return <Navigate to="/login" state={{ from: location }} replace />
     }
 
@@ -113,22 +139,30 @@ export const ProfileRequiredRoute = ({ children }) => {
 
 // Guest Route - only accessible when not logged in
 export const GuestRoute = ({ children }) => {
-    const { clerkSignedIn, user, userType, loading, syncing } = useAuth()
+    const { user, userType, loading } = useAuth()
 
-    // Show loading while auth is initializing or syncing
-    if (loading || syncing) {
+    console.log('[GuestRoute] Check:', { user: !!user, userType, loading })
+
+    // Show loading while auth is initializing
+    if (loading) {
+        console.log('[GuestRoute] Still loading')
         return <LoadingSpinner />
     }
 
-    // If Clerk is signed in AND we have a user AND userType, redirect to dashboard
-    if (clerkSignedIn && user && userType) {
-        const dashboardPath = userType === 'Jobseeker'
+    // If we have a synced user, redirect to their dashboard
+    // This handles page refresh scenarios
+    if (user) {
+        // Use userType from context (which comes from localStorage), fallback to user.userType
+        const type = userType || user?.userType
+        const dashboardPath = type === 'Jobseeker'
             ? '/jobseeker/dashboard'
             : '/employer/dashboard'
+        console.log('[GuestRoute] User exists, redirecting to:', dashboardPath)
         return <Navigate to={dashboardPath} replace />
     }
 
-    // Otherwise show the auth page
+    // Otherwise show the auth page - let the component handle the Clerk flow
+    console.log('[GuestRoute] No user, showing auth page')
     return children
 }
 

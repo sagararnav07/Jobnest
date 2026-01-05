@@ -1,65 +1,51 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { SignUp, useAuth as useClerkAuth } from '@clerk/clerk-react'
 import { motion } from 'framer-motion'
-import { useAuth } from '../../contexts/AuthContext'
 
+/**
+ * RegisterClerk - Simple registration page
+ * 1. User selects their type (Jobseeker/Employer)
+ * 2. Clerk handles registration
+ * 3. After auth, Clerk redirects to /auth/callback which handles sync
+ */
 const RegisterClerk = () => {
     const navigate = useNavigate()
-    const { isSignedIn: clerkSignedIn } = useClerkAuth()
-    const { setUserTypeForSignup, syncUserWithBackend, clerkUser, user } = useAuth()
-    const [userType, setUserType] = useState('Jobseeker')
-    const [showSignUp, setShowSignUp] = useState(false)
-    const [isProcessing, setIsProcessing] = useState(false)
-    const hasSelectedType = useRef(false)
+    const { isSignedIn, isLoaded } = useClerkAuth()
+    const [userType, setUserType] = useState(null)
 
-    // Handle post-authentication flow - only after user selects type and completes Clerk auth
-    useEffect(() => {
-        const handlePostAuth = async () => {
-            // Only process if user just completed Clerk auth AND selected a type in this session
-            if (clerkSignedIn && clerkUser && hasSelectedType.current && showSignUp && !isProcessing && !user) {
-                setIsProcessing(true)
-                try {
-                    await syncUserWithBackend(clerkUser, userType)
-                    const dashboardPath = userType === 'Jobseeker'
-                        ? '/jobseeker/dashboard'
-                        : '/employer/dashboard'
-                    navigate(dashboardPath, { replace: true })
-                } catch (err) {
-                    console.error('Failed to sync after sign-up:', err)
-                    setIsProcessing(false)
-                }
-            }
-        }
-        handlePostAuth()
-    }, [clerkSignedIn, clerkUser, userType, showSignUp, syncUserWithBackend, navigate, isProcessing, user])
-
-    const handleUserTypeSelect = (type) => {
-        setUserType(type)
-        setUserTypeForSignup(type)
-        hasSelectedType.current = true
-        setShowSignUp(true)
+    // If already signed in with Clerk, redirect to callback to handle sync
+    if (isLoaded && isSignedIn) {
+        navigate('/auth/callback', { replace: true })
+        return null
     }
 
-    // Show loading while processing post-auth
-    if (isProcessing) {
+    const handleUserTypeSelect = (type) => {
+        localStorage.setItem('pendingUserType', type)
+        setUserType(type)
+    }
+
+    const handleBack = () => {
+        localStorage.removeItem('pendingUserType')
+        setUserType(null)
+    }
+
+    if (!isLoaded) {
         return (
-            <div className="w-full flex flex-col items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-indigo-600 mb-4"></div>
-                <p className="text-gray-600">Creating your account...</p>
+            <div className="w-full flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-indigo-600"></div>
             </div>
         )
     }
 
     return (
         <div className="w-full">
-            {!showSignUp ? (
+            {!userType ? (
                 <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3 }}
                 >
-                    {/* Header */}
                     <div className="text-center mb-8">
                         <motion.div
                             initial={{ scale: 0 }}
@@ -71,13 +57,11 @@ const RegisterClerk = () => {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                             </svg>
                         </motion.div>
-                        <h1 className="text-2xl font-bold text-gray-900 mb-2">Create Account</h1>
-                        <p className="text-gray-500 text-sm">Join JobNest and find your next opportunity</p>
+                        <h1 className="text-2xl font-bold text-gray-900 mb-2">Join JobNest</h1>
+                        <p className="text-gray-500 text-sm">Choose how you want to use JobNest</p>
                     </div>
 
-                    {/* User Type Selection Cards */}
                     <div className="space-y-4">
-                        {/* Job Seeker Card */}
                         <motion.button
                             whileHover={{ scale: 1.01, y: -2 }}
                             whileTap={{ scale: 0.99 }}
@@ -100,7 +84,6 @@ const RegisterClerk = () => {
                             </div>
                         </motion.button>
 
-                        {/* Employer Card */}
                         <motion.button
                             whileHover={{ scale: 1.01, y: -2 }}
                             whileTap={{ scale: 0.99 }}
@@ -124,7 +107,6 @@ const RegisterClerk = () => {
                         </motion.button>
                     </div>
 
-                    {/* Footer Link */}
                     <div className="mt-8 text-center">
                         <p className="text-sm text-gray-500">
                             Already have an account?{' '}
@@ -143,10 +125,9 @@ const RegisterClerk = () => {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.3 }}
                 >
-                    {/* Back Button & Title */}
                     <div className="mb-6">
                         <button
-                            onClick={() => setShowSignUp(false)}
+                            onClick={handleBack}
                             className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 mb-4 transition-colors"
                         >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -162,10 +143,9 @@ const RegisterClerk = () => {
                         </p>
                     </div>
 
-                    {/* Clerk SignUp Component */}
                     <SignUp
                         signInUrl="/login"
-                        forceRedirectUrl={userType === 'Jobseeker' ? '/jobseeker/dashboard' : '/employer/dashboard'}
+                        forceRedirectUrl="/auth/callback"
                         appearance={{
                             elements: {
                                 rootBox: 'w-full',

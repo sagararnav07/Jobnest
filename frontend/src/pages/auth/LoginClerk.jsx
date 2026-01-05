@@ -1,65 +1,52 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { SignIn, useAuth as useClerkAuth } from '@clerk/clerk-react'
 import { motion } from 'framer-motion'
-import { useAuth } from '../../contexts/AuthContext'
 
+/**
+ * LoginClerk - Simple login page
+ * 1. User selects their type (Jobseeker/Employer)
+ * 2. Clerk handles authentication
+ * 3. After auth, Clerk redirects to /auth/callback which handles sync
+ */
 const LoginClerk = () => {
     const navigate = useNavigate()
-    const { isSignedIn: clerkSignedIn } = useClerkAuth()
-    const { setUserTypeForSignup, syncUserWithBackend, clerkUser, user } = useAuth()
-    const [userType, setUserType] = useState('Jobseeker')
-    const [showSignIn, setShowSignIn] = useState(false)
-    const [isProcessing, setIsProcessing] = useState(false)
-    const hasSelectedType = useRef(false)
+    const { isSignedIn, isLoaded } = useClerkAuth()
+    const [userType, setUserType] = useState(null)
 
-    // Handle post-authentication flow - only after user selects type and completes Clerk auth
-    useEffect(() => {
-        const handlePostAuth = async () => {
-            // Only process if user just completed Clerk auth AND selected a type in this session
-            if (clerkSignedIn && clerkUser && hasSelectedType.current && showSignIn && !isProcessing && !user) {
-                setIsProcessing(true)
-                try {
-                    await syncUserWithBackend(clerkUser, userType)
-                    const dashboardPath = userType === 'Jobseeker'
-                        ? '/jobseeker/dashboard'
-                        : '/employer/dashboard'
-                    navigate(dashboardPath, { replace: true })
-                } catch (err) {
-                    console.error('Failed to sync after sign-in:', err)
-                    setIsProcessing(false)
-                }
-            }
-        }
-        handlePostAuth()
-    }, [clerkSignedIn, clerkUser, userType, showSignIn, syncUserWithBackend, navigate, isProcessing, user])
-
-    const handleUserTypeSelect = (type) => {
-        setUserType(type)
-        setUserTypeForSignup(type)
-        hasSelectedType.current = true
-        setShowSignIn(true)
+    // If already signed in with Clerk, redirect to callback to handle sync
+    // The callback will handle getting/setting the user type
+    if (isLoaded && isSignedIn) {
+        navigate('/auth/callback', { replace: true })
+        return null
     }
 
-    // Show loading while processing post-auth
-    if (isProcessing) {
+    const handleUserTypeSelect = (type) => {
+        localStorage.setItem('pendingUserType', type)
+        setUserType(type)
+    }
+
+    const handleBack = () => {
+        localStorage.removeItem('pendingUserType')
+        setUserType(null)
+    }
+
+    if (!isLoaded) {
         return (
-            <div className="w-full flex flex-col items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-indigo-600 mb-4"></div>
-                <p className="text-gray-600">Setting up your account...</p>
+            <div className="w-full flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-indigo-600"></div>
             </div>
         )
     }
 
     return (
         <div className="w-full">
-            {!showSignIn ? (
+            {!userType ? (
                 <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3 }}
                 >
-                    {/* Header */}
                     <div className="text-center mb-8">
                         <motion.div
                             initial={{ scale: 0 }}
@@ -75,9 +62,7 @@ const LoginClerk = () => {
                         <p className="text-gray-500 text-sm">Choose how you want to access JobNest</p>
                     </div>
 
-                    {/* User Type Selection Cards */}
                     <div className="space-y-4">
-                        {/* Job Seeker Card */}
                         <motion.button
                             whileHover={{ scale: 1.01, y: -2 }}
                             whileTap={{ scale: 0.99 }}
@@ -100,7 +85,6 @@ const LoginClerk = () => {
                             </div>
                         </motion.button>
 
-                        {/* Employer Card */}
                         <motion.button
                             whileHover={{ scale: 1.01, y: -2 }}
                             whileTap={{ scale: 0.99 }}
@@ -124,7 +108,6 @@ const LoginClerk = () => {
                         </motion.button>
                     </div>
 
-                    {/* Footer Link */}
                     <div className="mt-8 text-center">
                         <p className="text-sm text-gray-500">
                             Don't have an account?{' '}
@@ -143,10 +126,9 @@ const LoginClerk = () => {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.3 }}
                 >
-                    {/* Back Button & Title */}
                     <div className="mb-6">
                         <button
-                            onClick={() => setShowSignIn(false)}
+                            onClick={handleBack}
                             className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 mb-4 transition-colors"
                         >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -162,10 +144,9 @@ const LoginClerk = () => {
                         </p>
                     </div>
 
-                    {/* Clerk SignIn Component */}
                     <SignIn
                         signUpUrl="/register"
-                        forceRedirectUrl={userType === 'Jobseeker' ? '/jobseeker/dashboard' : '/employer/dashboard'}
+                        forceRedirectUrl="/auth/callback"
                         appearance={{
                             elements: {
                                 rootBox: 'w-full',

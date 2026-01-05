@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const jwt = require('jsonwebtoken');
 const ClerkAuthController = require('../Controllers/ClerkAuthController');
 const clerkAuthMiddleware = require('../middewares/ClerkAuthMiddleware');
 const { getJobSeekerCollection, getEmployeerCollection } = require('../utlities/connection');
@@ -44,8 +45,18 @@ router.post('/sync', clerkAuthMiddleware, async (req, res, next) => {
         // Get or create user
         const result = await ClerkAuthController.getOrSyncUser(clerkUserData, userType);
 
+        // Generate JWT token for subsequent API calls
+        const jwtPayload = {
+            _id: result.user._id,
+            userType: result.userType,
+            clerkId: result.user.clerkId,
+            email: result.user.emailId
+        };
+        const token = jwt.sign(jwtPayload, process.env.JWT_SECRET, { expiresIn: '7d' });
+
         res.status(200).json({
             message: 'User synced successfully',
+            token: token,  // Include JWT token in response
             user: {
                 _id: result.user._id,
                 clerkId: result.user.clerkId,

@@ -19,8 +19,6 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ClerkProvider
       publishableKey={clerkPubKey}
-      afterSignInUrl="/login"
-      afterSignUpUrl="/register"
     >
       <BrowserRouter>
         <AuthProvider>

@@ -12,6 +12,7 @@ import { AuthLayout, DashboardLayout, StaticLayout } from '../layouts'
 // Auth Pages - Direct imports for Clerk components
 import LoginClerk from '../pages/auth/LoginClerk'
 import RegisterClerk from '../pages/auth/RegisterClerk'
+import AuthCallback from '../pages/auth/AuthCallback'
 
 // Home
 import { Home } from '../pages/home'
@@ -46,6 +47,9 @@ const AppRouter = () => {
         <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Home />} />
+
+            {/* Auth Callback - handles post-Clerk sync */}
+            <Route path="/auth/callback" element={<AuthCallback />} />
 
             {/* Auth Routes - Guest Only (Using Clerk) */}
             <Route element={<AuthLayout />}>
