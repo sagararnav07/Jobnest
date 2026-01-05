@@ -81,7 +81,7 @@ export const AssessmentRequiredRoute = ({ children }) => {
         return <Navigate to="/employer/dashboard" replace />
     }
 
-    if (!isAssessmentComplete()) {
+    if (!isAssessmentComplete) {
         return <Navigate to="/jobseeker/assessment" state={{ from: location }} replace />
     }
 
@@ -101,7 +101,7 @@ export const ProfileRequiredRoute = ({ children }) => {
         return <Navigate to="/login" state={{ from: location }} replace />
     }
 
-    if (!isProfileComplete()) {
+    if (!isProfileComplete) {
         const profilePath = user?.userType === 'Jobseeker'
             ? '/jobseeker/profile'
             : '/employer/profile'
