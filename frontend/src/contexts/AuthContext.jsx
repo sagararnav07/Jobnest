@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth as useClerkAuth, useUser as useClerkUser } from '@clerk/clerk-react'
 
 const AuthContext = createContext(null)
@@ -19,10 +19,15 @@ export const AuthProvider = ({ children }) => {
     const [syncing, setSyncing] = useState(false)
     const [error, setError] = useState(null)
     const [userType, setUserType] = useState(() => localStorage.getItem('userType'))
+    const syncAttempted = useRef(false)
 
     // Sync user from Clerk to our database
     const syncUserWithBackend = useCallback(async (clerkUserData, type) => {
-        if (syncing) return null
+        if (syncing) {
+            console.log('Already syncing, skipping...')
+            return null
+        }
+
         setSyncing(true)
 
         try {
@@ -65,6 +70,7 @@ export const AuthProvider = ({ children }) => {
             setUser(data.user)
             setUserType(type)
             localStorage.setItem('userType', type)
+            syncAttempted.current = true
             return data.user
         } catch (err) {
             console.error('Failed to sync user:', err)
@@ -72,13 +78,19 @@ export const AuthProvider = ({ children }) => {
         } finally {
             setSyncing(false)
         }
-    }, [getToken, syncing])
+    }, [getToken])
 
     // Initialize auth on mount and when Clerk state changes
     useEffect(() => {
         if (!clerkLoaded) return
 
         const initAuth = async () => {
+            // Don't auto-sync if we already have a user or if sync was already attempted
+            if (user || syncAttempted.current) {
+                setLoading(false)
+                return
+            }
+
             try {
                 if (clerkSignedIn && clerkUser) {
                     // Try to detect user type from localStorage
@@ -86,23 +98,24 @@ export const AuthProvider = ({ children }) => {
 
                     if (!storedType) {
                         // User is signed in but hasn't selected a type yet
-                        // This happens after OAuth sign-in without going through our flow
-                        setUser(null)
+                        // Let the login/register page handle the sync
                         setLoading(false)
                         return
                     }
 
-                    // Sync with backend
-                    try {
-                        await syncUserWithBackend(clerkUser, storedType)
-                    } catch (err) {
-                        console.error('Backend sync failed:', err)
-                        // Don't block the auth flow if sync fails
-                        setUser(null)
+                    // Only auto-sync if we have a stored type and haven't synced yet
+                    if (!syncing) {
+                        try {
+                            await syncUserWithBackend(clerkUser, storedType)
+                        } catch (err) {
+                            console.error('Backend sync failed:', err)
+                            // Don't block the auth flow if sync fails
+                        }
                     }
                 } else {
                     setUser(null)
                     setUserType(null)
+                    syncAttempted.current = false
                 }
             } catch (err) {
                 console.error('Auth initialization error:', err)
@@ -113,7 +126,7 @@ export const AuthProvider = ({ children }) => {
         }
 
         initAuth()
-    }, [clerkLoaded, clerkSignedIn, clerkUser?.id]) // Use clerkUser.id to avoid infinite loops
+    }, [clerkLoaded, clerkSignedIn, clerkUser?.id])
 
     // Complete user profile after signup
     const completeProfile = useCallback(async (profileData) => {
@@ -217,6 +230,7 @@ export const AuthProvider = ({ children }) => {
         user,
         userType,
         loading: loading || !clerkLoaded,
+        syncing,
         error,
         clerkSignedIn,
         clerkUser,

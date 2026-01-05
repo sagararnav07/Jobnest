@@ -113,9 +113,10 @@ export const ProfileRequiredRoute = ({ children }) => {
 
 // Guest Route - only accessible when not logged in
 export const GuestRoute = ({ children }) => {
-    const { isAuthenticated, user, loading, clerkSignedIn } = useAuth()
+    const { isAuthenticated, user, loading, clerkSignedIn, syncing } = useAuth()
 
-    if (loading) {
+    // Show loading while auth is initializing or syncing
+    if (loading || syncing) {
         return <LoadingSpinner />
     }
 
