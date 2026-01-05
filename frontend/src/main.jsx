@@ -11,9 +11,17 @@ import { AuthProvider, ChatProvider } from './contexts'
 // Get Clerk publishable key
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
 
+if (!clerkPubKey) {
+  console.error('Missing VITE_CLERK_PUBLISHABLE_KEY environment variable')
+}
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <ClerkProvider publishableKey={clerkPubKey}>
+    <ClerkProvider
+      publishableKey={clerkPubKey}
+      afterSignInUrl="/login"
+      afterSignUpUrl="/register"
+    >
       <BrowserRouter>
         <AuthProvider>
           <ChatProvider>
