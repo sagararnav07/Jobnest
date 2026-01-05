@@ -23,6 +23,15 @@ export const AuthProvider = ({ children }) => {
     const syncUserWithBackend = useCallback(async (clerkUserData, type) => {
         try {
             const token = await getToken()
+
+            // Extract user info from Clerk user object
+            const email = clerkUserData?.primaryEmailAddress?.emailAddress ||
+                clerkUserData?.emailAddresses?.[0]?.emailAddress || ''
+            const name = clerkUserData?.fullName ||
+                `${clerkUserData?.firstName || ''} ${clerkUserData?.lastName || ''}`.trim() ||
+                'User'
+            const profileImage = clerkUserData?.imageUrl || clerkUserData?.profileImageUrl || ''
+
             const response = await fetch(
                 `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api/v1'}/auth/clerk/sync`,
                 {
@@ -31,12 +40,18 @@ export const AuthProvider = ({ children }) => {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`
                     },
-                    body: JSON.stringify({ userType: type })
+                    body: JSON.stringify({
+                        userType: type,
+                        email: email,
+                        name: name,
+                        profileImage: profileImage
+                    })
                 }
             )
 
             if (!response.ok) {
-                throw new Error('Failed to sync user with backend')
+                const errorData = await response.json().catch(() => ({}))
+                throw new Error(errorData.message || 'Failed to sync user with backend')
             }
 
             const data = await response.json()

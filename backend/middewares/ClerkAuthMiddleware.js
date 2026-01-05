@@ -1,10 +1,10 @@
-const { ClerkExpressRequireAuth } = require('@clerk/express');
+const { requireAuth } = require('@clerk/express');
 
 /**
  * Clerk Authentication Middleware
  * Verifies JWT tokens issued by Clerk
  * Automatically rejects requests without valid tokens
  */
-const clerkAuthMiddleware = ClerkExpressRequireAuth();
+const clerkAuthMiddleware = requireAuth();
 
 module.exports = clerkAuthMiddleware;

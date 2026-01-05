@@ -12,13 +12,13 @@ const { getJobSeekerCollection, getEmployeerCollection } = require('../utlities/
 /**
  * POST /auth/clerk/sync
  * Sync user from Clerk after authentication
- * Body: { userType: 'Jobseeker' | 'Employeer' }
+ * Body: { userType: 'Jobseeker' | 'Employeer', email, name, profileImage }
  * Header: Authorization: Bearer <clerk_token>
  */
-router.post('/auth/clerk/sync', clerkAuthMiddleware, async (req, res, next) => {
+router.post('/sync', clerkAuthMiddleware, async (req, res, next) => {
     try {
-        const { userType } = req.body;
-        const clerkUser = req.auth;
+        const { userType, email, name, profileImage } = req.body;
+        const clerkUserId = req.auth.userId;
 
         if (!userType || !['Jobseeker', 'Employeer'].includes(userType)) {
             let error = new Error('Invalid user type. Must be "Jobseeker" or "Employeer"');
@@ -26,8 +26,23 @@ router.post('/auth/clerk/sync', clerkAuthMiddleware, async (req, res, next) => {
             throw error;
         }
 
+        if (!email) {
+            let error = new Error('Email is required');
+            error.status = 400;
+            throw error;
+        }
+
+        // Create clerk user data object from request body
+        const clerkUserData = {
+            id: clerkUserId,
+            email_addresses: [{ email_address: email }],
+            first_name: name?.split(' ')[0] || '',
+            last_name: name?.split(' ').slice(1).join(' ') || '',
+            image_url: profileImage
+        };
+
         // Get or create user
-        const result = await ClerkAuthController.getOrSyncUser(clerkUser, userType);
+        const result = await ClerkAuthController.getOrSyncUser(clerkUserData, userType);
 
         res.status(200).json({
             message: 'User synced successfully',
@@ -52,18 +67,15 @@ router.post('/auth/clerk/sync', clerkAuthMiddleware, async (req, res, next) => {
  * For job seekers: { skills, jobPreferences }
  * For employers: { companyName, description, industry }
  */
-router.post('/auth/clerk/complete-profile', clerkAuthMiddleware, async (req, res, next) => {
+router.post('/complete-profile', clerkAuthMiddleware, async (req, res, next) => {
     try {
-        const clerkUser = req.auth;
+        const clerkUserId = req.auth.userId;
         const { userType, ...profileData } = req.body;
 
         // Get user type from request or detect it
         let detectedUserType = userType;
         if (!detectedUserType) {
-            const existing = await ClerkAuthController.syncUserAcrossCollections(
-                clerkUser.userId,
-                clerkUser.emailAddresses[0]?.emailAddress
-            );
+            const existing = await ClerkAuthController.syncUserAcrossCollections(clerkUserId, null);
             detectedUserType = existing?.userType;
         }
 
@@ -78,7 +90,7 @@ router.post('/auth/clerk/complete-profile', clerkAuthMiddleware, async (req, res
             : await getEmployeerCollection();
 
         const user = await collection.findOneAndUpdate(
-            { clerkId: clerkUser.userId },
+            { clerkId: clerkUserId },
             {
                 ...profileData,
                 profileCompleted: true
@@ -105,14 +117,11 @@ router.post('/auth/clerk/complete-profile', clerkAuthMiddleware, async (req, res
  * GET /auth/clerk/profile
  * Get current user profile (Clerk-authenticated)
  */
-router.get('/auth/clerk/profile', clerkAuthMiddleware, async (req, res, next) => {
+router.get('/profile', clerkAuthMiddleware, async (req, res, next) => {
     try {
-        const clerkUser = req.auth;
+        const clerkUserId = req.auth.userId;
 
-        const result = await ClerkAuthController.syncUserAcrossCollections(
-            clerkUser.userId,
-            clerkUser.emailAddresses[0]?.emailAddress
-        );
+        const result = await ClerkAuthController.syncUserAcrossCollections(clerkUserId, null);
 
         if (!result) {
             let error = new Error('User not found');
@@ -139,15 +148,12 @@ router.get('/auth/clerk/profile', clerkAuthMiddleware, async (req, res, next) =>
  * PUT /auth/clerk/profile
  * Update user profile
  */
-router.put('/auth/clerk/profile', clerkAuthMiddleware, async (req, res, next) => {
+router.put('/profile', clerkAuthMiddleware, async (req, res, next) => {
     try {
-        const clerkUser = req.auth;
+        const clerkUserId = req.auth.userId;
         const updates = req.body;
 
-        const result = await ClerkAuthController.syncUserAcrossCollections(
-            clerkUser.userId,
-            clerkUser.emailAddresses[0]?.emailAddress
-        );
+        const result = await ClerkAuthController.syncUserAcrossCollections(clerkUserId, null);
 
         if (!result) {
             let error = new Error('User not found');
@@ -179,7 +185,7 @@ router.put('/auth/clerk/profile', clerkAuthMiddleware, async (req, res, next) =>
  * Handle Clerk webhook events (user.created, user.updated, user.deleted)
  * Should be called with Clerk webhook signature verification
  */
-router.post('/auth/clerk/webhook', async (req, res, next) => {
+router.post('/webhook', async (req, res, next) => {
     try {
         // In production, verify Clerk webhook signature here
         const result = await ClerkAuthController.handleClerkWebhook(req.body);
@@ -193,7 +199,7 @@ router.post('/auth/clerk/webhook', async (req, res, next) => {
  * GET /auth/clerk/logout
  * Logout user (frontend should handle Clerk token removal)
  */
-router.get('/auth/clerk/logout', (req, res) => {
+router.get('/logout', (req, res) => {
     res.json({
         message: 'Logout successful. Please clear Clerk tokens on the frontend.',
         instructions: 'Call clerk.signOut() on the frontend'
