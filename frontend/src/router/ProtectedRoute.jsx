@@ -10,14 +10,15 @@ const LoadingSpinner = () => (
 
 // Protected Route - requires authentication
 export const ProtectedRoute = ({ children }) => {
-    const { isAuthenticated, loading } = useAuth()
+    const { isAuthenticated, isClerkAuthenticated, isInTransition, loading, syncing } = useAuth()
     const location = useLocation()
 
-    if (loading) {
+    // Show loading while auth is initializing, syncing, or in transition
+    if (loading || syncing || isInTransition) {
         return <LoadingSpinner />
     }
 
-    if (!isAuthenticated) {
+    if (!isAuthenticated && !isClerkAuthenticated) {
         return <Navigate to="/login" state={{ from: location }} replace />
     }
 
@@ -26,14 +27,15 @@ export const ProtectedRoute = ({ children }) => {
 
 // Jobseeker Only Route
 export const JobseekerRoute = ({ children }) => {
-    const { isAuthenticated, isJobseeker, loading } = useAuth()
+    const { isAuthenticated, isClerkAuthenticated, isJobseeker, isInTransition, loading, syncing } = useAuth()
     const location = useLocation()
 
-    if (loading) {
+    // Show loading while auth is initializing, syncing, or in transition
+    if (loading || syncing || isInTransition) {
         return <LoadingSpinner />
     }
 
-    if (!isAuthenticated) {
+    if (!isAuthenticated && !isClerkAuthenticated) {
         return <Navigate to="/login" state={{ from: location }} replace />
     }
 
@@ -46,14 +48,15 @@ export const JobseekerRoute = ({ children }) => {
 
 // Employer Only Route
 export const EmployerRoute = ({ children }) => {
-    const { isAuthenticated, isEmployer, loading } = useAuth()
+    const { isAuthenticated, isClerkAuthenticated, isEmployer, isInTransition, loading, syncing } = useAuth()
     const location = useLocation()
 
-    if (loading) {
+    // Show loading while auth is initializing, syncing, or in transition
+    if (loading || syncing || isInTransition) {
         return <LoadingSpinner />
     }
 
-    if (!isAuthenticated) {
+    if (!isAuthenticated && !isClerkAuthenticated) {
         return <Navigate to="/login" state={{ from: location }} replace />
     }
 
@@ -66,14 +69,15 @@ export const EmployerRoute = ({ children }) => {
 
 // Assessment Required Route - jobseeker must complete assessment
 export const AssessmentRequiredRoute = ({ children }) => {
-    const { isAuthenticated, isJobseeker, isAssessmentComplete, loading } = useAuth()
+    const { isAuthenticated, isClerkAuthenticated, isJobseeker, isAssessmentComplete, isInTransition, loading, syncing } = useAuth()
     const location = useLocation()
 
-    if (loading) {
+    // Show loading while auth is initializing, syncing, or in transition
+    if (loading || syncing || isInTransition) {
         return <LoadingSpinner />
     }
 
-    if (!isAuthenticated) {
+    if (!isAuthenticated && !isClerkAuthenticated) {
         return <Navigate to="/login" state={{ from: location }} replace />
     }
 
@@ -90,14 +94,15 @@ export const AssessmentRequiredRoute = ({ children }) => {
 
 // Profile Required Route - user must complete profile
 export const ProfileRequiredRoute = ({ children }) => {
-    const { isAuthenticated, isProfileComplete, user, loading } = useAuth()
+    const { isAuthenticated, isClerkAuthenticated, isProfileComplete, user, isInTransition, loading, syncing } = useAuth()
     const location = useLocation()
 
-    if (loading) {
+    // Show loading while auth is initializing, syncing, or in transition
+    if (loading || syncing || isInTransition) {
         return <LoadingSpinner />
     }
 
-    if (!isAuthenticated) {
+    if (!isAuthenticated && !isClerkAuthenticated) {
         return <Navigate to="/login" state={{ from: location }} replace />
     }
 
@@ -113,23 +118,13 @@ export const ProfileRequiredRoute = ({ children }) => {
 
 // Guest Route - only accessible when not logged in
 export const GuestRoute = ({ children }) => {
-    const { isAuthenticated, user, loading, clerkSignedIn, syncing } = useAuth()
+    const { isAuthenticated, user, loading, syncing, isInTransition } = useAuth()
 
-    // Show loading while auth is initializing or syncing
-    if (loading || syncing) {
-        return <LoadingSpinner />
+    // Show loading while auth is initializing, syncing, or in transition
+    if (loading || syncing || isInTransition) {
+
+        // Otherwise show the auth page - let the component handle the flow
+        return children
     }
 
-    // If user is fully authenticated (Clerk + backend synced), redirect to dashboard
-    if (isAuthenticated && user) {
-        const dashboardPath = user?.userType === 'Jobseeker'
-            ? '/jobseeker/dashboard'
-            : '/employer/dashboard'
-        return <Navigate to={dashboardPath} replace />
-    }
-
-    // Otherwise show the auth page - let the component handle the flow
-    return children
-}
-
-export default ProtectedRoute
+    export default ProtectedRoute

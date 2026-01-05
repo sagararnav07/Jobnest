@@ -226,11 +226,15 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('userType', type)
     }, [])
 
+    // Determine if we're in a transitional auth state (Clerk signed in, but backend not synced yet)
+    const isInTransition = clerkSignedIn && !user && !!localStorage.getItem('userType')
+
     const value = {
         user,
         userType,
         loading: loading || !clerkLoaded,
         syncing,
+        isInTransition,
         error,
         clerkSignedIn,
         clerkUser,
@@ -240,7 +244,10 @@ export const AuthProvider = ({ children }) => {
         getUserProfile,
         logout,
         setUserTypeForSignup,
+        // User is authenticated if Clerk is signed in AND we have synced user data
         isAuthenticated: clerkSignedIn && !!user,
+        // User is "partially authenticated" if Clerk is signed in (even if backend sync pending)
+        isClerkAuthenticated: clerkSignedIn,
         isJobseeker: userType === 'Jobseeker',
         isEmployer: userType === 'Employeer',
         isProfileComplete: user?.profileCompleted || false,
