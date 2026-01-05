@@ -9,3 +9,4 @@ export { default as LoginClerk } from './LoginClerk'
 export { default as RegisterJobseekerLegacy } from './RegisterJobseeker'
 export { default as RegisterEmployerLegacy } from './RegisterEmployer'
 export { default as RegisterClerk } from './RegisterClerk'
+// Clerk Auth v2
