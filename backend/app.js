@@ -48,6 +48,7 @@ app.use(cors({
 }))
 // Clerk middleware - process Clerk authentication
 app.use(clerkMiddleware({
+    publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
     secretKey: process.env.CLERK_SECRET_KEY
 }))
 app.use(bodyParser.json())
