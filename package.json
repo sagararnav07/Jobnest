@@ -5,10 +5,15 @@
   "scripts": {
     "start": "cd backend && npm start",
     "build": "cd backend && npm install",
+    "postinstall": "cd backend && npm install",
     "install-backend": "cd backend && npm install",
     "install-frontend": "cd frontend && npm install",
     "dev": "cd backend && npm run dev"
   },
-  "keywords": ["job", "portal", "mern"],
+  "keywords": [
+    "job",
+    "portal",
+    "mern"
+  ],
   "license": "ISC"
 }
