@@ -36,7 +36,9 @@ const allowedOrigins = [
     'http://localhost:5174',
     'http://localhost:5175',
     'http://localhost:3000',
-    'https://frontend-iota-sable-56.vercel.app'
+    'https://frontend-iota-sable-56.vercel.app',
+    'https://jobnest-main.vercel.app',
+    'https://jobnest-main-arnav-sagars-projects.vercel.app'
 ]
 
 app.use(cors({
@@ -44,7 +46,11 @@ app.use(cors({
         // Allow requests with no origin (mobile apps, curl, etc.)
         if (!origin) return callback(null, true)
 
-        if (allowedOrigins.includes(origin) || process.env.FRONTEND_URL === origin) {
+        // Check if origin is in allowed list or matches FRONTEND_URL env var
+        // Also allow any vercel.app subdomain for preview deployments
+        if (allowedOrigins.includes(origin) ||
+            process.env.FRONTEND_URL === origin ||
+            origin?.endsWith('.vercel.app')) {
             callback(null, true)
         } else {
             callback(new Error('Not allowed by CORS'))

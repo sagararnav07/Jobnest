@@ -43,6 +43,6 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_URL
-        value: https://jobnest-backend-34qe.onrender.com/api/v1
+        value: https://jobnest-ujoo.onrender.com/api/v1
       - key: VITE_CLERK_PUBLISHABLE_KEY
         sync: false # Must be set manually
