@@ -20,10 +20,11 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: FRONTEND_URL
-        fromService:
-          name: jobnest-frontend
-          type: web
-          property: url
+        value: https://frontend-iota-sable-56.vercel.app
+      - key: CLERK_PUBLISHABLE_KEY
+        sync: false # Must be set manually
+      - key: CLERK_SECRET_KEY
+        sync: false # Must be set manually
 
   # Frontend Static Site
   - type: web
@@ -42,8 +43,6 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_URL
-        fromService:
-          name: jobnest-backend
-          type: web
-          envVarKey: RENDER_EXTERNAL_URL
-          transform: "%s/api/v1"
+        value: https://jobnest-backend-34qe.onrender.com/api/v1
+      - key: VITE_CLERK_PUBLISHABLE_KEY
+        sync: false # Must be set manually

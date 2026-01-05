@@ -4,6 +4,7 @@ const bodyParser = require('body-parser')
 const cors = require('cors')
 const path = require('path');
 const dotenv = require('dotenv');
+const { clerkMiddleware } = require('@clerk/express');
 dotenv.config({ path: path.join(__dirname, '.env') });
 const create = require('./utlities/dbsetup')
 const app = express();
@@ -18,23 +19,25 @@ const jobSeekerRouter = require('./Routes/JobSeekers')
 const jobRouter = require('./Routes/Jobs')
 const applicationRouter = require('./Routes/Applications')
 const messageRouter = require('./Routes/Messages')
+const clerkAuthRouter = require('./Routes/ClerkAuth')
 
 // Initialize Socket.io
 initializeSocket(server);
 
-// CORS configuration - allow multiple localhost ports for development
+// CORS configuration - allow multiple localhost ports for development and production
 const allowedOrigins = [
     'http://localhost:5173',
     'http://localhost:5174',
     'http://localhost:5175',
-    'http://localhost:3000'
+    'http://localhost:3000',
+    'https://frontend-iota-sable-56.vercel.app'
 ]
 
 app.use(cors({
-    origin: function(origin, callback) {
+    origin: function (origin, callback) {
         // Allow requests with no origin (mobile apps, curl, etc.)
         if (!origin) return callback(null, true)
-        
+
         if (allowedOrigins.includes(origin) || process.env.FRONTEND_URL === origin) {
             callback(null, true)
         } else {
@@ -42,6 +45,10 @@ app.use(cors({
         }
     },
     credentials: true
+}))
+// Clerk middleware - process Clerk authentication
+app.use(clerkMiddleware({
+    secretKey: process.env.CLERK_SECRET_KEY
 }))
 app.use(bodyParser.json())
 app.use(requestLogger)
@@ -55,7 +62,7 @@ app.use('/reports', express.static('data/Reports'))
 // WARNING: This endpoint should be removed or protected in production
 // It deletes all data and resets the database
 if (process.env.NODE_ENV !== 'production') {
-    app.get('/setupDb', async(req, res, next) => {
+    app.get('/setupDb', async (req, res, next) => {
         try {
             let data = await create.setupDb();
             res.send(data)
@@ -65,8 +72,9 @@ if (process.env.NODE_ENV !== 'production') {
     })
 }
 
-app.use('/api/v1/user',router);
-app.use('/api/v1/employeer',employeerRouter)
+app.use('/api/v1/user', router);
+app.use('/api/v1/auth/clerk', clerkAuthRouter);
+app.use('/api/v1/employeer', employeerRouter)
 app.use('/api/v1/quiz', quizRouter)
 app.use('/api/v1/jobSeeker', jobSeekerRouter)
 app.use('/api/v1/jobs', jobRouter)

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import authService from '../api/authService'
+import { useAuth as useClerkAuth, useUser as useClerkUser } from '@clerk/clerk-react'
 
 const AuthContext = createContext(null)
 
@@ -12,115 +12,193 @@ export const useAuth = () => {
 }
 
 export const AuthProvider = ({ children }) => {
+    const { isLoaded: clerkLoaded, isSignedIn: clerkSignedIn, getToken } = useClerkAuth()
+    const { user: clerkUser } = useClerkUser()
     const [user, setUser] = useState(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
+    const [userType, setUserType] = useState(null)
 
-    // Load user on mount
-    useEffect(() => {
-        const initAuth = async () => {
-            const token = localStorage.getItem('token')
-            if (token) {
-                try {
-                    const response = await authService.getProfile()
-                    setUser(response.user)
-                } catch (err) {
-                    console.error('Failed to load user:', err)
-                    localStorage.removeItem('token')
-                    localStorage.removeItem('user')
+    // Sync user from Clerk to our database
+    const syncUserWithBackend = useCallback(async (clerkUserData, type) => {
+        try {
+            const token = await getToken()
+            const response = await fetch(
+                `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api/v1'}/auth/clerk/sync`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ userType: type })
                 }
+            )
+
+            if (!response.ok) {
+                throw new Error('Failed to sync user with backend')
             }
-            setLoading(false)
+
+            const data = await response.json()
+            setUser(data.user)
+            setUserType(type)
+            localStorage.setItem('userType', type)
+            return data.user
+        } catch (err) {
+            console.error('Failed to sync user:', err)
+            throw err
         }
+    }, [getToken])
+
+    // Initialize auth on mount
+    useEffect(() => {
+        if (!clerkLoaded) return
+
+        const initAuth = async () => {
+            try {
+                if (clerkSignedIn && clerkUser) {
+                    // Try to detect user type from localStorage or prompt
+                    let type = localStorage.getItem('userType')
+
+                    if (!type) {
+                        // If no user type saved, we'll let the user choose during the flow
+                        setUser(null)
+                        setLoading(false)
+                        return
+                    }
+
+                    // Sync with backend
+                    await syncUserWithBackend(clerkUser, type)
+                } else {
+                    setUser(null)
+                }
+            } catch (err) {
+                console.error('Auth initialization error:', err)
+                setError('Failed to initialize authentication')
+            } finally {
+                setLoading(false)
+            }
+        }
+
         initAuth()
-    }, [])
+    }, [clerkLoaded, clerkSignedIn, clerkUser, syncUserWithBackend])
 
-    // Register
-    const register = useCallback(async (userData) => {
-        setError(null)
+    // Complete user profile after signup
+    const completeProfile = useCallback(async (profileData) => {
         try {
-            const response = await authService.register(userData)
-            // After registration, fetch full profile
-            const profileResponse = await authService.getProfile()
-            setUser(profileResponse.user)
-            return response
+            const token = await getToken()
+            const response = await fetch(
+                `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api/v1'}/auth/clerk/complete-profile`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ userType, ...profileData })
+                }
+            )
+
+            if (!response.ok) {
+                throw new Error('Failed to complete profile')
+            }
+
+            const data = await response.json()
+            setUser(data.user)
+            return data.user
         } catch (err) {
-            const errorMessage = err.response?.data?.message || 'Registration failed'
-            setError(errorMessage)
+            console.error('Failed to complete profile:', err)
             throw err
         }
-    }, [])
+    }, [getToken, userType])
 
-    // Login
-    const login = useCallback(async (credentials) => {
-        setError(null)
+    // Update user profile
+    const updateUserProfile = useCallback(async (updates) => {
         try {
-            const response = await authService.login(credentials)
-            // Fetch user profile after login
-            const profileResponse = await authService.getProfile()
-            setUser(profileResponse.user)
-            // Return both the login response and user data for redirect logic
-            return { ...response, user: profileResponse.user }
+            const token = await getToken()
+            const response = await fetch(
+                `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api/v1'}/auth/clerk/profile`,
+                {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(updates)
+                }
+            )
+
+            if (!response.ok) {
+                throw new Error('Failed to update profile')
+            }
+
+            const data = await response.json()
+            setUser(data.user)
+            return data.user
         } catch (err) {
-            const errorMessage = err.response?.data?.message || 'Login failed'
-            setError(errorMessage)
+            console.error('Failed to update profile:', err)
             throw err
         }
-    }, [])
+    }, [getToken])
 
-    // Logout
+    // Get user profile
+    const getUserProfile = useCallback(async () => {
+        try {
+            const token = await getToken()
+            const response = await fetch(
+                `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api/v1'}/auth/clerk/profile`,
+                {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                }
+            )
+
+            if (!response.ok) {
+                throw new Error('Failed to get profile')
+            }
+
+            const data = await response.json()
+            setUser(data.user)
+            setUserType(data.userType)
+            return data
+        } catch (err) {
+            console.error('Failed to get profile:', err)
+            throw err
+        }
+    }, [getToken])
+
+    // Logout is handled by Clerk
     const logout = useCallback(() => {
-        authService.logout()
         setUser(null)
+        setUserType(null)
+        localStorage.removeItem('userType')
     }, [])
 
-    // Update user data locally
-    const updateUser = useCallback((userData) => {
-        setUser(prev => ({ ...prev, ...userData }))
+    // Set user type during signup
+    const setUserTypeForSignup = useCallback((type) => {
+        setUserType(type)
+        localStorage.setItem('userType', type)
     }, [])
-
-    // Refresh user profile
-    const refreshProfile = useCallback(async () => {
-        try {
-            const response = await authService.getProfile()
-            setUser(response.user)
-            return response.user
-        } catch (err) {
-            console.error('Failed to refresh profile:', err)
-            throw err
-        }
-    }, [])
-
-    // Check if profile is complete
-    const isProfileComplete = useCallback(() => {
-        if (!user) return false
-        if (user.userType === 'Jobseeker') {
-            return !!(user.skills?.length > 0 && user.jobPreference)
-        } else {
-            return !!(user.description && user.industry)
-        }
-    }, [user])
-
-    // Check if assessment is complete (for jobseekers)
-    const isAssessmentComplete = useCallback(() => {
-        if (!user) return false
-        return user.test === true
-    }, [user])
 
     const value = {
         user,
-        loading,
+        userType,
+        loading: loading || !clerkLoaded,
         error,
-        register,
-        login,
+        clerkSignedIn,
+        clerkUser,
+        syncUserWithBackend,
+        completeProfile,
+        updateUserProfile,
+        getUserProfile,
         logout,
-        updateUser,
-        refreshProfile,
-        isAuthenticated: !!user,
-        isJobseeker: user?.userType === 'Jobseeker',
-        isEmployer: user?.userType === 'Employeer',
-        isProfileComplete,
-        isAssessmentComplete
+        setUserTypeForSignup,
+        isAuthenticated: clerkSignedIn && !!user,
+        isJobseeker: userType === 'Jobseeker',
+        isEmployer: userType === 'Employeer',
+        isProfileComplete: user?.profileCompleted || false,
+        isAssessmentComplete: user?.test === true
     }
 
     return (

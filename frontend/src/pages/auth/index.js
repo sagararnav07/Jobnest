@@ -1,3 +1,5 @@
 export { default as Login } from './Login'
+export { default as LoginClerk } from './LoginClerk'
 export { default as RegisterJobseeker } from './RegisterJobseeker'
 export { default as RegisterEmployer } from './RegisterEmployer'
+export { default as RegisterClerk } from './RegisterClerk'
