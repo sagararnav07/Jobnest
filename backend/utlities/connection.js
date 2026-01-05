@@ -10,16 +10,20 @@ const jobseekerSchema = Schema({
     _id: { type: mongoose.Schema.Types.ObjectId, default: () => new mongoose.Types.ObjectId(), required: true },
     name: { type: String, required: true },
     emailId: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
+    password: { type: String, required: false }, // Optional for Clerk auth users
+    clerkId: { type: String, sparse: true, unique: true }, // Clerk user ID
+    authMethod: { type: String, enum: ['local', 'clerk'], default: 'local' },
+    profileImage: { type: String }, // Clerk profile image URL
     jobPreference: { type: String },
     skills: { type: [String] },
-    experience: { type: Number, default:0 },
-    resume: {data: Buffer, contenttype: String},
-    coverLetter: {data: Buffer, contenttype: String },
+    experience: { type: Number, default: 0 },
+    resume: { data: Buffer, contenttype: String },
+    coverLetter: { data: Buffer, contenttype: String },
     socialProfiles: { type: [String] },
     test: { type: Boolean, required: true, default: false },
     userType: { type: String, required: true, enum: ["Employeer", "Jobseeker"] },
-    tags: { type: [String] }
+    tags: { type: [String] },
+    profileCompleted: { type: Boolean, default: false }
 }, { collection: "Jobseeker" });
 
 // Add indexes for jobseeker
@@ -32,14 +36,18 @@ const employeerSchema = Schema({
     _id: { type: mongoose.Schema.Types.ObjectId, default: () => new mongoose.Types.ObjectId(), required: true },
     name: { type: String, required: true },
     emailId: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
+    password: { type: String, required: false }, // Optional for Clerk auth users
+    clerkId: { type: String, sparse: true, unique: true }, // Clerk user ID
+    authMethod: { type: String, enum: ['local', 'clerk'], default: 'local' },
+    profileImage: { type: String }, // Clerk profile image URL
     description: { type: String },
     companyIcon: { data: Buffer, contenttype: String },
     userType: { type: String, required: true, enum: ["Employeer", "Jobseeker"] },
     industry: { type: String, enum: ["IT", "Manufacturing", "Production", "Services"] },
-    linkedIn: { type: String},
-    website: { type: String},
-    tags: { type: [String] }
+    linkedIn: { type: String },
+    website: { type: String },
+    tags: { type: [String] },
+    profileCompleted: { type: Boolean, default: false }
 }, { collection: "Employeer" });
 
 // Add indexes for employer
@@ -52,7 +60,7 @@ const experienceSchema = Schema({
 
 const jobSchema = Schema({
     _id: { type: mongoose.Schema.Types.ObjectId, default: () => new mongoose.Types.ObjectId(), required: true },
-    jobTitle: { type: String, required: true, min:4 },
+    jobTitle: { type: String, required: true, min: 4 },
     salary: { type: String, required: true },
     currencytype: { type: String, required: true },
     skills: { type: [String], required: true },
