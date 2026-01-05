@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { SignIn, useAuth as useClerkAuth } from '@clerk/clerk-react'
 import { motion } from 'framer-motion'
@@ -7,19 +7,21 @@ import { useAuth } from '../../contexts/AuthContext'
 const LoginClerk = () => {
     const navigate = useNavigate()
     const { isSignedIn: clerkSignedIn } = useClerkAuth()
-    const { setUserTypeForSignup, syncUserWithBackend, clerkUser, userType: storedUserType } = useAuth()
+    const { setUserTypeForSignup, syncUserWithBackend, clerkUser, user } = useAuth()
     const [userType, setUserType] = useState('Jobseeker')
     const [showSignIn, setShowSignIn] = useState(false)
     const [isProcessing, setIsProcessing] = useState(false)
+    const hasSelectedType = useRef(false)
 
-    // Handle post-authentication flow
+    // Handle post-authentication flow - only after user selects type and completes Clerk auth
     useEffect(() => {
         const handlePostAuth = async () => {
-            if (clerkSignedIn && clerkUser && storedUserType && !isProcessing) {
+            // Only process if user just completed Clerk auth AND selected a type in this session
+            if (clerkSignedIn && clerkUser && hasSelectedType.current && showSignIn && !isProcessing && !user) {
                 setIsProcessing(true)
                 try {
-                    await syncUserWithBackend(clerkUser, storedUserType)
-                    const dashboardPath = storedUserType === 'Jobseeker'
+                    await syncUserWithBackend(clerkUser, userType)
+                    const dashboardPath = userType === 'Jobseeker'
                         ? '/jobseeker/dashboard'
                         : '/employer/dashboard'
                     navigate(dashboardPath, { replace: true })
@@ -30,11 +32,12 @@ const LoginClerk = () => {
             }
         }
         handlePostAuth()
-    }, [clerkSignedIn, clerkUser, storedUserType, syncUserWithBackend, navigate, isProcessing])
+    }, [clerkSignedIn, clerkUser, userType, showSignIn, syncUserWithBackend, navigate, isProcessing, user])
 
     const handleUserTypeSelect = (type) => {
         setUserType(type)
         setUserTypeForSignup(type)
+        hasSelectedType.current = true
         setShowSignIn(true)
     }
 

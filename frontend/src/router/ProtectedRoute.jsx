@@ -113,7 +113,7 @@ export const ProfileRequiredRoute = ({ children }) => {
 
 // Guest Route - only accessible when not logged in
 export const GuestRoute = ({ children }) => {
-    const { isAuthenticated, user, userType, loading, clerkSignedIn } = useAuth()
+    const { isAuthenticated, user, loading, clerkSignedIn } = useAuth()
 
     if (loading) {
         return <LoadingSpinner />
@@ -127,17 +127,7 @@ export const GuestRoute = ({ children }) => {
         return <Navigate to={dashboardPath} replace />
     }
 
-    // If signed in with Clerk but no user type selected yet, show the auth page
-    // This allows users to select their user type after OAuth sign-in
-    if (clerkSignedIn && !userType) {
-        return children
-    }
-
-    // If signed in with Clerk and has userType but not synced yet, show loading
-    if (clerkSignedIn && userType && !user) {
-        return <LoadingSpinner />
-    }
-
+    // Otherwise show the auth page - let the component handle the flow
     return children
 }
 
