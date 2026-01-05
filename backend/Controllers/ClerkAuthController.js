@@ -28,21 +28,38 @@ ClerkAuthController.syncOrCreateUser = async (clerkUserData, userType) => {
             ? await getJobSeekerCollection()
             : await getEmployeerCollection();
 
-        // Check if user already exists
+        // First check if user exists by clerkId
         let user = await collection.findOne({ clerkId: id });
 
         if (!user) {
-            // Create new user with Clerk data
-            user = await collection.create({
-                clerkId: id,
-                name: name,
-                emailId: email,
-                profileImage: image_url,
-                userType: userType,
-                clerkConnected: true,
-                authMethod: 'clerk',
-                createdAt: new Date()
-            });
+            // Check if user exists by email (could be a previous local account)
+            user = await collection.findOne({ emailId: email });
+
+            if (user) {
+                // Link existing account to Clerk
+                user = await collection.findByIdAndUpdate(
+                    user._id,
+                    {
+                        clerkId: id,
+                        name: name,
+                        profileImage: image_url,
+                        authMethod: 'clerk',
+                        lastUpdated: new Date()
+                    },
+                    { new: true }
+                );
+            } else {
+                // Create new user with Clerk data
+                user = await collection.create({
+                    clerkId: id,
+                    name: name,
+                    emailId: email,
+                    profileImage: image_url,
+                    userType: userType,
+                    authMethod: 'clerk',
+                    createdAt: new Date()
+                });
+            }
         } else {
             // Update existing user with latest Clerk data
             user = await collection.findByIdAndUpdate(
@@ -50,7 +67,6 @@ ClerkAuthController.syncOrCreateUser = async (clerkUserData, userType) => {
                 {
                     name: name,
                     profileImage: image_url,
-                    clerkConnected: true,
                     lastUpdated: new Date()
                 },
                 { new: true }
