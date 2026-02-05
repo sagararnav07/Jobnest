@@ -30,34 +30,16 @@ const clerkAuthRouter = require('./Routes/ClerkAuth')
 // Initialize Socket.io
 initializeSocket(server);
 
-// CORS configuration - allow multiple localhost ports for development and production
-const allowedOrigins = [
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'http://localhost:5175',
-    'http://localhost:3000',
-    'https://frontend-iota-sable-56.vercel.app',
-    'https://jobnest-main.vercel.app',
-    'https://jobnest-main-arnav-sagars-projects.vercel.app'
-]
-
+// CORS configuration - allow all origins
 app.use(cors({
-    origin: function (origin, callback) {
-        // Allow requests with no origin (mobile apps, curl, etc.)
-        if (!origin) return callback(null, true)
-
-        // Check if origin is in allowed list or matches FRONTEND_URL env var
-        // Also allow any vercel.app subdomain for preview deployments
-        if (allowedOrigins.includes(origin) ||
-            process.env.FRONTEND_URL === origin ||
-            origin?.endsWith('.vercel.app')) {
-            callback(null, true)
-        } else {
-            callback(new Error('Not allowed by CORS'))
-        }
-    },
-    credentials: true
+    origin: true,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
 }))
+
+// Handle preflight requests for all routes
+app.options('*', cors())
 
 // Only apply Clerk middleware if keys are available
 if (process.env.CLERK_PUBLISHABLE_KEY && process.env.CLERK_SECRET_KEY) {
