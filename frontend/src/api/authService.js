@@ -13,7 +13,7 @@ const authService = {
         return response.data
     },
 
-    // Resend OTP
+    // Resend OTP back
     resendOTP: async (email, userType, name) => {
         const response = await api.post('/user/auth/resend-otp', { email, userType, name })
         return response.data
