@@ -7,7 +7,7 @@ import { jobseekerService } from '../../api'
 import './../../App.css'
 
 const JobseekerProfile = () => {
-    const { user, refreshProfile } = useAuth()
+    const { user, getUserProfile } = useAuth()
     const navigate = useNavigate()
     
     const [formData, setFormData] = useState({
@@ -108,12 +108,8 @@ const JobseekerProfile = () => {
             // Prepare form data for file upload
 
             const submitData = new FormData()
-                                                                    console.log('ln 96 ');
             submitData.append('jobPreference', formData.jobPreference)
-            // submitData.append('skills', JSON.stringify(formData.skills.split(',').map(s => s.trim())))
             submitData.append('skills', formData.skills)
-            console.log('ln 113');
-        
             submitData.append('experience', formData.experience || '0')
             submitData.append('socialProfiles', formData.socialProfiles)
 
@@ -124,8 +120,15 @@ const JobseekerProfile = () => {
                 submitData.append('coverLetter', files.coverLetter)
             }
 
+            // Debug: log FormData entries
+            console.log('FormData entries:')
+            for (const [key, value] of submitData.entries()) {
+                console.log(`  ${key}:`, value)
+            }
+            console.log('Token:', localStorage.getItem('token') ? 'EXISTS' : 'MISSING')
+
             await jobseekerService.updateProfileWithFiles(submitData)
-            await refreshProfile()
+            if (getUserProfile) await getUserProfile()
 
             setToast({
                 show: true,
@@ -138,9 +141,11 @@ const JobseekerProfile = () => {
                 navigate('/jobseeker/assessment')
             }, 1500)
         } catch (error) {
+            console.error('Profile update error:', error)
+            console.error('Error response:', error.response?.status, error.response?.data)
             setToast({
                 show: true,
-                message: error.response?.data?.message || 'Failed to update profile',
+                message: error.response?.data?.message || error.response?.data?.msg || error.message || 'Failed to update profile',
                 type: 'error'
             })
         } finally {

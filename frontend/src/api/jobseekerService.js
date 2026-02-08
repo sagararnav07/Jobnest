@@ -17,11 +17,7 @@ const jobseekerService = {
     updateProfileWithFiles: async (formData) => {
         console.log('ln 18 ', formData);
         
-        const response = await api.post('/jobSeeker/updateProfile', formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data'
-            }
-        })
+        const response = await api.post('/jobSeeker/updateProfile', formData)
         return response.data
     },
 
