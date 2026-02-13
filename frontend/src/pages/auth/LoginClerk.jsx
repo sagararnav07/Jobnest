@@ -147,6 +147,7 @@ const LoginClerk = () => {
                     <SignIn
                         signUpUrl="/register"
                         forceRedirectUrl="/auth/callback"
+                        fallbackRedirectUrl="/auth/callback"
                         appearance={{
                             elements: {
                                 rootBox: 'w-full',

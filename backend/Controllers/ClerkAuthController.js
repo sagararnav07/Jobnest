@@ -134,23 +134,49 @@ ClerkAuthController.getUserByClerkId = async (clerkId, userType) => {
 
 /**
  * Detect user type and sync user
- * Checks both collections to find existing user
+ * Checks both collections to find existing user by clerkId or email
  */
 ClerkAuthController.syncUserAcrossCollections = async (clerkId, email) => {
     try {
         const jobSeekerCollection = await getJobSeekerCollection();
         const employeerCollection = await getEmployeerCollection();
 
-        // Check if user exists as job seeker
+        // Check if user exists as job seeker by clerkId
         let user = await jobSeekerCollection.findOne({ clerkId });
         if (user) {
             return { user, userType: 'Jobseeker' };
         }
 
-        // Check if user exists as employer
+        // Check if user exists as employer by clerkId
         user = await employeerCollection.findOne({ clerkId });
         if (user) {
             return { user, userType: 'Employeer' };
+        }
+
+        // Also check by email for OAuth users who may have signed up
+        // with a different provider but same email
+        if (email) {
+            user = await jobSeekerCollection.findOne({ emailId: email });
+            if (user) {
+                // Link this clerkId to the existing account
+                await jobSeekerCollection.updateOne(
+                    { _id: user._id },
+                    { $set: { clerkId, authMethod: 'clerk' } }
+                );
+                user.clerkId = clerkId;
+                return { user, userType: 'Jobseeker' };
+            }
+
+            user = await employeerCollection.findOne({ emailId: email });
+            if (user) {
+                // Link this clerkId to the existing account
+                await employeerCollection.updateOne(
+                    { _id: user._id },
+                    { $set: { clerkId, authMethod: 'clerk' } }
+                );
+                user.clerkId = clerkId;
+                return { user, userType: 'Employeer' };
+            }
         }
 
         // User not found

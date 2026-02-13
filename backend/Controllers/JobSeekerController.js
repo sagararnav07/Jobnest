@@ -1,4 +1,5 @@
 const { getJobSeekerCollection, getJobCollection, getResultCollection, getApplicationCollection } = require('../utlities/connection');
+const { getCache, setCache, invalidateJobseekerCaches, TTL, KEYS } = require('../utlities/redisClient');
 
 const updateProfile = async (req, res, next) => {
     try {
@@ -52,6 +53,9 @@ const updateProfile = async (req, res, next) => {
             return res.status(404).json({ message: 'JobSeeker not found' });
         }
 
+        // Invalidate caches for this user
+        await invalidateJobseekerCaches(userId);
+
         res.status(200).json({ message: 'Profile updated successfully', data: result });
     } catch (error) {
         next(error);
@@ -62,6 +66,11 @@ const updateProfile = async (req, res, next) => {
 const getMatchedJobs = async (req, res, next) => {
     try {
         const userId = req.userId;
+        
+        // Check Redis cache first
+        const cached = await getCache(KEYS.MATCHED_JOBS(userId));
+        if (cached) return res.json({ jobs: cached });
+
         const jobCollection = await getJobCollection();
         const jobSeekerCollection = await getJobSeekerCollection();
         
@@ -101,6 +110,8 @@ const getMatchedJobs = async (req, res, next) => {
             }
         }
 
+        // Cache result
+        await setCache(KEYS.MATCHED_JOBS(userId), jobs, TTL.FILTERED_JOBS);
         res.json({ jobs });
     } catch (error) {
         next(error);
@@ -111,6 +122,11 @@ const getMatchedJobs = async (req, res, next) => {
 const getAssessmentResults = async (req, res, next) => {
     try {
         const userId = req.userId;
+        
+        // Check Redis cache first
+        const cached = await getCache(KEYS.ASSESSMENT_RESULTS(userId));
+        if (cached) return res.json({ result: cached });
+
         const resultCollection = await getResultCollection();
         
         const result = await resultCollection.findOne({ userId: userId });
@@ -121,6 +137,8 @@ const getAssessmentResults = async (req, res, next) => {
             throw error;
         }
 
+        // Cache result
+        await setCache(KEYS.ASSESSMENT_RESULTS(userId), result, TTL.ASSESSMENT_RESULTS);
         res.json({ result });
     } catch (error) {
         next(error);
@@ -131,6 +149,11 @@ const getAssessmentResults = async (req, res, next) => {
 const getDashboardStats = async (req, res, next) => {
     try {
         const userId = req.userId;
+        
+        // Check Redis cache first
+        const cached = await getCache(KEYS.DASHBOARD(userId));
+        if (cached) return res.json({ stats: cached });
+
         const applicationCollection = await getApplicationCollection();
         const jobCollection = await getJobCollection();
         const jobSeekerCollection = await getJobSeekerCollection();
@@ -155,14 +178,16 @@ const getDashboardStats = async (req, res, next) => {
             matchedJobsCount = await jobCollection.countDocuments(query);
         }
 
-        res.json({
-            stats: {
-                applications: applications.length,
-                matchedJobs: matchedJobsCount,
-                profileComplete: !!(user?.skills?.length > 0 && user?.jobPreference),
-                assessmentComplete: user?.test || false
-            }
-        });
+        const stats = {
+            applications: applications.length,
+            matchedJobs: matchedJobsCount,
+            profileComplete: !!(user?.skills?.length > 0 && user?.jobPreference),
+            assessmentComplete: user?.test || false
+        };
+
+        // Cache result
+        await setCache(KEYS.DASHBOARD(userId), stats, TTL.DASHBOARD_STATS);
+        res.json({ stats });
     } catch (error) {
         next(error);
     }

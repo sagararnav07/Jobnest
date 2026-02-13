@@ -63,7 +63,17 @@ export const AuthProvider = ({ children }) => {
         setSyncing(true)
 
         try {
-            const token = await getToken()
+            // Retry getting token for OAuth flows
+            let token = null
+            for (let i = 0; i < 3; i++) {
+                try {
+                    token = await getToken()
+                    if (token) break
+                } catch (tokenErr) {
+                    console.warn(`[AuthContext] Token attempt ${i + 1} failed:`, tokenErr.message)
+                    if (i < 2) await new Promise(r => setTimeout(r, 1000))
+                }
+            }
             if (!token) {
                 throw new Error('No auth token available')
             }

@@ -2,6 +2,7 @@ const { config } = require('dotenv')
 const dbModel = require('./../utlities/connection')
 const { categoryDb } = require('./../utlities/dbsetup')
 const { generateAssessmentReport } = require('./../utlities/pdfReportGenerator')
+const { getCache, setCache, invalidateJobseekerCaches, invalidateJobCaches, TTL, KEYS } = require('./../utlities/redisClient')
 //get questions from DB 
 const getQuestions = async (questionsIds = []) => {
     try {
@@ -239,6 +240,10 @@ const endQuiz = async (userId, responses) => {
             console.error('PDF generation failed:', pdfError.message)
             // Continue even if PDF fails - don't block the quiz completion
         }
+
+        // Invalidate user caches since tags/test changed
+        await invalidateJobseekerCaches(userId)
+        await invalidateJobCaches() // Filtered jobs depend on tags
 
         return {
             potentialEmployeers: potentialEmployeersName,

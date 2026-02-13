@@ -1,6 +1,8 @@
 const dbModel = require('./../utlities/connection')
 const { validateJob } = require('./../utlities/Validation')
 const {getEmployerNameById} = require('./EmployeerController')
+const { getCache, setCache, invalidateJobCaches, TTL, KEYS } = require('./../utlities/redisClient')
+
 const createJob = async (job, employeerId) =>{
     try{
         const jobCollection = await dbModel.getJobCollection()
@@ -24,6 +26,8 @@ const createJob = async (job, employeerId) =>{
             error.status = 500
             throw error
         }
+        // Invalidate all job-related caches
+        await invalidateJobCaches()
         return newJob 
     }
     catch(error) {throw error}
@@ -32,6 +36,10 @@ const createJob = async (job, employeerId) =>{
 
 const getFilteredJobs = async (userId) => {
     try{
+        // Check Redis cache first
+        const cached = await getCache(KEYS.FILTERED_JOBS(userId))
+        if (cached) return cached
+
         const jobCollection = await dbModel.getJobCollection()
         const jobSeekerCollection = await dbModel.getJobSeekerCollection()
         const employeerCollection = await dbModel.getEmployeerCollection()
@@ -41,10 +49,17 @@ const getFilteredJobs = async (userId) => {
         const hasTags = jobSeeker && jobSeeker.tags && jobSeeker.tags.length > 0
 
         const allJobs = await jobCollection.find({})
+        
+        // Batch fetch all employers instead of N+1 queries
+        const employerIds = [...new Set(allJobs.map(j => j.employeerId?.toString()).filter(Boolean))]
+        const employers = await employeerCollection.find({ _id: { $in: employerIds } }, { name: 1, tags: 1 })
+        const employerMap = {}
+        employers.forEach(emp => { employerMap[emp._id.toString()] = emp })
+
         const filteredJobs = []
 
         for (const job of allJobs) {
-            const employer = await employeerCollection.findOne({_id: job.employeerId}, {_id:0, name:1, tags:1})   
+            const employer = employerMap[job.employeerId?.toString()] || null
                                  
             let matchScore = 0
             let commonTags = []
@@ -73,8 +88,7 @@ const getFilteredJobs = async (userId) => {
             }
 
             // Show ALL jobs, but prioritize by match score
-            // Jobs with higher match scores appear first
-            const displayScore = matchScore > 0 ? matchScore : (hasTags ? 10 : 50) // Give low score to unmatched jobs instead of hiding them
+            const displayScore = matchScore > 0 ? matchScore : (hasTags ? 10 : 50)
             
             filteredJobs.push({
                 _id:job._id,
@@ -96,6 +110,9 @@ const getFilteredJobs = async (userId) => {
         }
 
         filteredJobs.sort((a, b) => b.matchPercentage - a.matchPercentage)
+        
+        // Cache result
+        await setCache(KEYS.FILTERED_JOBS(userId), filteredJobs, TTL.FILTERED_JOBS)
         return filteredJobs
     }
     catch(err) {
@@ -122,20 +139,32 @@ const getFilteredJobs = async (userId) => {
 
 const getAllJobs = async () => {
     try {
+        // Check Redis cache first
+        const cached = await getCache(KEYS.ALL_JOBS)
+        if (cached) return cached
+
         const jobCollection = await dbModel.getJobCollection()
+        const employeerCollection = await dbModel.getEmployeerCollection()
         let jobs = await jobCollection.find({})
         
-        // Use Promise.all to resolve all async operations
-        const jobsWithCompany = await Promise.all(jobs.map(async (job) => {
-            const employer = await getEmployerNameById(job.employeerId)
+        // Batch fetch all employers instead of N+1 queries
+        const employerIds = [...new Set(jobs.map(j => j.employeerId?.toString()).filter(Boolean))]
+        const employers = await employeerCollection.find({ _id: { $in: employerIds } })
+        const employerMap = {}
+        employers.forEach(emp => { employerMap[emp._id.toString()] = emp })
+
+        const jobsWithCompany = jobs.map(job => {
             const doc = job._doc || job
+            const employer = employerMap[job.employeerId?.toString()]
             return {
                 ...doc,
                 companyName: employer?.name || '',
                 companyIcon: employer?.companyIcon || ''
             }
-        }))
+        })
         
+        // Cache result
+        await setCache(KEYS.ALL_JOBS, jobsWithCompany, TTL.ALL_JOBS)
         return jobsWithCompany
     } catch(error) {
         throw error
@@ -144,6 +173,10 @@ const getAllJobs = async () => {
 
 const getJobById = async (jobId) => {
     try {
+        // Check Redis cache first
+        const cached = await getCache(KEYS.JOB_DETAIL(jobId))
+        if (cached) return cached
+
         const jobCollection = await dbModel.getJobCollection()
         let job = await jobCollection.findOne({ _id: jobId })
         if(!job) {
@@ -153,7 +186,11 @@ const getJobById = async (jobId) => {
         }
         const employeer = await getEmployerNameById(job.employeerId)
         const doc = job._doc
-        return {...doc, companyIcon:employeer.companyIcon, companyName:employeer.name}
+        const result = {...doc, companyIcon:employeer.companyIcon, companyName:employeer.name}
+        
+        // Cache result
+        await setCache(KEYS.JOB_DETAIL(jobId), result, TTL.JOB_DETAIL)
+        return result
     } catch(error) {
         throw error
     }
@@ -161,20 +198,28 @@ const getJobById = async (jobId) => {
 
 const getJobsByEmployer = async (employeerId) => {
     try {
+        // Check Redis cache first
+        const cached = await getCache(KEYS.EMPLOYER_JOBS(employeerId))
+        if (cached) return cached
+
         const jobCollection = await dbModel.getJobCollection()
+        const employeerCollection = await dbModel.getEmployeerCollection()
         let jobs = await jobCollection.find({ employeerId: employeerId })
         
-        // Use Promise.all to resolve all async operations
-        const jobsWithCompany = await Promise.all(jobs.map(async (job) => {
-            const employer = await getEmployerNameById(job.employeerId)
+        // Single employer fetch instead of N+1
+        const employer = await employeerCollection.findOne({ _id: employeerId })
+        
+        const jobsWithCompany = jobs.map(job => {
             const doc = job._doc || job
             return {
                 ...doc,
                 companyName: employer?.name || '',
                 companyIcon: employer?.companyIcon || ''
             }
-        }))
+        })
         
+        // Cache result
+        await setCache(KEYS.EMPLOYER_JOBS(employeerId), jobsWithCompany, TTL.EMPLOYER_JOBS)
         return jobsWithCompany
     } catch(error) {
         throw error
@@ -203,6 +248,8 @@ const updateJob = async (jobId, jobData, employeerId) => {
             { ...jobData, updatedAt: new Date() },
             { new: true }
         )
+        // Invalidate caches
+        await invalidateJobCaches()
         return updatedJob
     } catch(error) {
         throw error
@@ -227,6 +274,8 @@ const deleteJob = async (jobId, employeerId) => {
         }
         
         await jobCollection.findByIdAndDelete(jobId)
+        // Invalidate caches
+        await invalidateJobCaches()
         return { message: 'Job deleted successfully' }
     } catch(error) {
         throw error

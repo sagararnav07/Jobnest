@@ -19,6 +19,11 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ClerkProvider
       publishableKey={clerkPubKey}
+      signInForceRedirectUrl="/auth/callback"
+      signUpForceRedirectUrl="/auth/callback"
+      signInFallbackRedirectUrl="/auth/callback"
+      signUpFallbackRedirectUrl="/auth/callback"
+      afterSignOutUrl="/login"
     >
       <BrowserRouter>
         <AuthProvider>

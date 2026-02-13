@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const bodyParser = require('body-parser')
 const cors = require('cors')
+const compression = require('compression')
 const path = require('path');
 const dotenv = require('dotenv');
 const { clerkMiddleware } = require('@clerk/express');
@@ -39,6 +40,9 @@ app.use(cors({
     preflightContinue: false,
     optionsSuccessStatus: 204
 }))
+
+// Gzip compression for all responses
+app.use(compression())
 
 // Only apply Clerk middleware if keys are available
 if (process.env.CLERK_PUBLISHABLE_KEY && process.env.CLERK_SECRET_KEY) {
@@ -89,7 +93,13 @@ app.use('/api/v1/messages', messageRouter)
 
 // Health check endpoint for deployment platforms
 app.get('/health', (req, res) => {
-    res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+    const { isRedisAvailable } = require('./utlities/redisClient');
+    res.status(200).json({ 
+        status: 'ok', 
+        timestamp: new Date().toISOString(),
+        redis: isRedisAvailable() ? 'connected' : 'disabled',
+        uptime: process.uptime()
+    });
 });
 
 app.use(errorLogger)

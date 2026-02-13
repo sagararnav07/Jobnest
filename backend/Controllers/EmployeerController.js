@@ -2,6 +2,7 @@ const multer = require('multer');
 const { upload }= require('../utlities/multerSetup');
 const jwt = require("jsonwebtoken");
 const dbModel = require('./../utlities/connection');
+const { getCache, setCache, invalidateEmployerCaches, TTL, KEYS } = require('./../utlities/redisClient');
 
 
 exports.getEmployerNameById = async (id) => {
@@ -65,8 +66,11 @@ exports.updateProfile = async (req, res, next) => {
       }
       // Optionally fetch and return the updated profile
       const updatedProfile = await employeerCollection.findOne({ _id: userId });
-      if(updatedProfile)
-      return res.json({ message: "Employer profile updated", profile: updatedProfile });
+      if(updatedProfile) {
+        // Invalidate caches
+        await invalidateEmployerCaches(userId);
+        return res.json({ message: "Employer profile updated", profile: updatedProfile });
+      }
       else {
         let error= new Error('Unable to get employeer details')
         error.status = 500
@@ -80,14 +84,22 @@ exports.updateProfile = async (req, res, next) => {
 
 exports.getProfile = async (req, res, next) => {
   try {
-    const employeerCollection = await dbModel.getEmployeerCollection();
     const userId = req.userId;
+    
+    // Check Redis cache first
+    const cached = await getCache(KEYS.EMPLOYER_PROFILE(userId));
+    if (cached) return res.json(cached);
+
+    const employeerCollection = await dbModel.getEmployeerCollection();
     const profile = await employeerCollection.findOne({ _id: userId });
     if (!profile) {
       let error = new Error("Employer profile not found");
       error.status = 404;
       throw error;
     }
+    
+    // Cache result
+    await setCache(KEYS.EMPLOYER_PROFILE(userId), profile, TTL.EMPLOYER_PROFILE);
     res.json(profile);
   } catch (error) {
     next(error);
